@@ -278,31 +278,59 @@ class INIT(object) :
 
         """ Input Image"""
         Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
+        # todo
 
         trainA = tf.data.Dataset.from_tensor_slices(self.trainA_dataset)
+        trainA_o = tf.data.Dataset.from_tensor_slices(self.trainA_instance)
+        trainA_bg = tf.data.Dataset.from_tensor_slices(self.trainA_background)
+
         trainB = tf.data.Dataset.from_tensor_slices(self.trainB_dataset)
+        trainB_o = tf.data.Dataset.from_tensor_slices(self.trainB_instance)
+        trainB_bg = tf.data.Dataset.from_tensor_slices(self.trainB_background)
 
-        trainA = trainA.prefetch(self.batch_size).shuffle(self.dataset_num).map(Image_Data_Class.image_processing, num_parallel_calls=8).apply(batch_and_drop_remainder(self.batch_size)).repeat()
-        trainB = trainB.prefetch(self.batch_size).shuffle(self.dataset_num).map(Image_Data_Class.image_processing, num_parallel_calls=8).apply(batch_and_drop_remainder(self.batch_size)).repeat()
+        trainA = zip()
 
-        trainA_iterator = trainA.make_one_shot_iterator()
-        trainB_iterator = trainB.make_one_shot_iterator()
-
-
-        self.domain_A = trainA_iterator.get_next()
-        self.domain_B = trainB_iterator.get_next()
-
-        # input Instance
-        # if ROI
-        # if crop image
-        # todo
-        # output
-        # instance
-        self.domain_a = roi(self.domain_A, scope="ROI")
-        self.domain_b = roi(self.domain_B, scope="ROI")
-        # background
-        self.domain_a_bg
-        self.domain_b_bg
+        # trainA = trainA.map(Image_Data_Class.image_resize)
+        # trainB = trainB.Dataset.map(Image_Data_Class.image_resize)
+        #
+        # traina = tf.data.Dataset.fron_tensor_slices(self.trainA_instance).map(Image_Data_Class.object_resize)
+        # trainb = tf.data.Dataset.fron_tensor_slices(self.trainb_instance).map(Image_Data_Class.object_resize)
+        #
+        # def data_generator(a, b):
+        #     for x, y in zip(a, b):
+        #         yield {'image': [x], 'instance': [y]}
+        #
+        # trainA = tf.data.Dataset.from_generator(generator=data_generator(trainA, traina),
+        #                                         output_types={'image': tf.float32, 'instance': tf.float32})
+        # trainB = tf.data.Dataset.from_generator(generator=data_generator(trainB, trainb),
+        #                                         output_types={'image': tf.float32, 'instance': tf.float32})
+        #
+        # trainA = trainA.repeat().padded_batch(4, padded_shapes={'image':[None], 'instance':[None]}).prefetch(self.batch_size).shuffle(self.dataset_num).apply(batch_and_drop_remainder(self.batch_size)).repeat()
+        # trainB = trainB.repeat().padded_batch(4, padded_shapes={'image':[None], 'instance':[None]}).prefetch(self.batch_size).shuffle(self.dataset_num).apply(batch_and_drop_remainder(self.batch_size)).repeat()
+        #
+        # # trainA = trainA.prefetch(self.batch_size).shuffle(self.dataset_num).map(Image_Data_Class.image_processing, num_parallel_calls=8).apply(batch_and_drop_remainder(self.batch_size)).repeat()
+        # # trainB = trainB.prefetch(self.batch_size).shuffle(self.dataset_num).map(Image_Data_Class.image_processing, num_parallel_calls=8).apply(batch_and_drop_remainder(self.batch_size)).repeat()
+        #
+        # trainA_iterator = trainA.make_one_shot_iterator()
+        # trainB_iterator = trainB.make_one_shot_iterator()
+        #
+        # A = trainA_iterator.get_next()
+        # B = trainB_iterator.get_next()
+        #
+        # self.domain_A = A['image']
+        # self.domain_B = B['image']
+        #
+        # # input Instance
+        # # if ROI
+        # # if crop image
+        # # todo
+        # # output
+        # # instance
+        # self.domain_a = A['instance']
+        # self.domain_b = B['instance']
+        # # background
+        # self.domain_a_bg
+        # self.domain_b_bg
 
 
         """ Define Encoder, Generator, Discriminator """
@@ -497,22 +525,30 @@ class INIT(object) :
         self.all_D_loss = tf.summary.scalar("Discriminator_loss", self.Discriminator_loss)
         self.G_A_loss = tf.summary.scalar("G_A_loss", Generator_A_loss)
         self.G_B_loss = tf.summary.scalar("G_B_loss", Generator_B_loss)
+        self.G_a_loss = tf.summary.scalar("G_a_loss", Generator_a_loss)
+        self.G_b_loss = tf.summary.scalar("G_b_loss", Generator_b_loss)
         self.D_A_loss = tf.summary.scalar("D_A_loss", Discriminator_A_loss)
         self.D_B_loss = tf.summary.scalar("D_B_loss", Discriminator_B_loss)
 
-        self.G_loss = tf.summary.merge([self.G_A_loss, self.G_B_loss, self.all_G_loss])
+        self.G_loss = tf.summary.merge([self.G_A_loss, self.G_a_loss, self.G_B_loss, self.G_B_loss, self.all_G_loss])
         self.D_loss = tf.summary.merge([self.D_A_loss, self.D_B_loss, self.all_D_loss])
 
         """ Image """
         self.fake_A = x_ba
         self.fake_B = x_ab
+        self.fake_a = x_ba_o
+        self.fake_b = x_ab_o
 
         self.real_A = self.domain_A
         self.real_B = self.domain_B
+        self.real_a = self.domain_a
+        self.real_b = self.domain_b
 
         """ Test """
         self.test_image = tf.placeholder(tf.float32, [1, self.img_h, self.img_w, self.img_ch], name='test_image')
         self.test_style = tf.placeholder(tf.float32, [1, 1, 1, self.style_dim], name='test_style')
+
+        # self.test_image_instance =
 
         test_content_a, _ = self.Encoder_A(self.test_image, reuse=True)
         test_content_b, _ = self.Encoder_B(self.test_image, reuse=True)

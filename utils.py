@@ -30,6 +30,35 @@ class ImageData:
 
         return img
 
+    def object_resize(self, filename, height=120, width=120):
+    # object will be resized to 120*120 pixels
+        x = tf.read_file(filename)
+        x_decode = tf.image.decode_jpeg(x, channels=self.channels)
+        img = tf.image.resize_images(x_decode, [height, width])
+        img = tf.cast(img, tf.float32) / 127.5 - 1
+        return img
+
+    def image_resize(self, filename, resize=True, height=360, width=572):
+        # the short side of image will be resized to 360 pixels
+        # due to the limitation of GPU memory
+        x = tf.read_file(filename)
+        img = tf.image.decode_jpeg(x, channels=self.channels)
+        if resize:
+            img = tf.image.resize_images(img, [height, width])
+        img = tf.cast(img, tf.float32) / 127.5 - 1
+        return img
+
+    def processing(self, file):
+        global_image = self.image_resize(file['image'])
+        instance = []
+        for file_path in file['instance']:
+            instance.append(self.object_resize(file_path))
+        background = self.image_resize(file['background'])
+
+        return {'image': global_image,
+                'background': background,
+                'instance': instance}
+
 
 def load_test_data(image_path, size_h=256, size_w=256):
     img = misc.imread(image_path, mode='RGB')
