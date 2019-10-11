@@ -253,12 +253,12 @@ class INIT(object) :
         return x_ab
 
     # instance decoder
-    def Decoder_a(self, content_a, style_b, reuse=False):
-        x_ab = self.generator(contents=content_a, style=style_b, reuse=reuse, scope='decoder_a')
+    def Decoder_a(self, content_b, style_a, reuse=False):
+        x_ab = self.generator(contents=content_b, style=style_a, reuse=reuse, scope='decoder_a')
         return x_ab
 
-    def Decoder_b(self, content_b, style_a, reuse=False):
-        x_ba = self.generator(contents=content_b, style=style_a, reuse=reuse, scope='decoder_b')
+    def Decoder_b(self, content_a, style_b, reuse=False):
+        x_ba = self.generator(contents=content_a, style=style_b, reuse=reuse, scope='decoder_b')
         return x_ba
 
     def discriminate_real(self, x_A, x_B):
@@ -547,8 +547,9 @@ class INIT(object) :
         """ Test """
         self.test_image = tf.placeholder(tf.float32, [1, self.img_h, self.img_w, self.img_ch], name='test_image')
         self.test_style = tf.placeholder(tf.float32, [1, 1, 1, self.style_dim], name='test_style')
-
-        # self.test_image_instance =
+        # 120*120
+        self.test_instance = tf.placeholder(tf.float32, [1, self.istn_w, self.istn_w, self.img_ch], name='test_instance')
+        self.test_local_style = tf.placeholder(tf.float32, [1, 1, 1, self.style_dim], name='test_instance_style')
 
         test_content_a, _ = self.Encoder_A(self.test_image, reuse=True)
         test_content_b, _ = self.Encoder_B(self.test_image, reuse=True)
@@ -556,20 +557,35 @@ class INIT(object) :
         self.test_fake_A = self.Decoder_A(content_B=test_content_b, style_A=self.test_style, reuse=True)
         self.test_fake_B = self.Decoder_B(content_A=test_content_a, style_B=self.test_style, reuse=True)
 
+        test_constent_oa, _ = self.Encoder_a(self.test_instance, reuse=True)
+        test_constent_ob, _ = self.Encoder_b(self.test_instance, reuse=True)
+
+        self.test_fake_oa = self.Dencoder_a(content_b=test_constent_oa, style_a=self.test_local_style, reuse=True)
+        self.test_fake_ob = self.Dencoder_a(content_a=test_constent_ob, style_b=self.test_local_style, reuse=True)
+
         """ Guided Image Translation """
         self.content_image = tf.placeholder(tf.float32, [1, self.img_h, self.img_w, self.img_ch], name='content_image')
         self.style_image = tf.placeholder(tf.float32, [1, self.img_h, self.img_w, self.img_ch], name='guide_style_image')
 
+        self.content_o = tf.placeholder()
+        self.style_o = tf.placeholder()
+
         if self.direction == 'a2b' :
             guide_content_A, guide_style_A = self.Encoder_A(self.content_image, reuse=True)
             guide_content_B, guide_style_B = self.Encoder_B(self.style_image, reuse=True)
+            guide_content_oa, guide_style_oa = self.Encoder_a(self.content_o, reuse=True)
+            guide_content_ob, guide_style_ob = self.Encoder_b(self.style_o, reuses=True)
 
         else :
             guide_content_B, guide_style_B = self.Encoder_B(self.content_image, reuse=True)
             guide_content_A, guide_style_A = self.Encoder_A(self.style_image, reuse=True)
+            guide_content_oa, guide_style_oa = self.Encoder_a(self.style_o, reuse=True)
+            guide_content_ob, guide_style_ob = self.Encoder_b(self.content_o, reuse=True)
 
         self.guide_fake_A = self.Decoder_A(content_B=guide_content_B, style_A=guide_style_A, reuse=True)
         self.guide_fake_B = self.Decoder_B(content_A=guide_content_A, style_B=guide_style_B, reuse=True)
+        self.guide_fake_a = self.Decoder_a(content_b=guide_content_ob, style_a=guide_style_oa, reuse=True)
+        self.guide_fake_b = self.Decoder_b(content_a=guide_content_oa, style_b=guide_style_ob, reuse=True)
 
     def train(self):
         # initialize all variables
@@ -603,10 +619,14 @@ class INIT(object) :
             for idx in range(start_batch_id, self.iteration):
                 style_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
                 style_b = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
+                style_oa = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
+                style_ob = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
 
                 train_feed_dict = {
                     self.style_a : style_a,
                     self.style_b : style_b,
+                    self.style_oa : style_oa,
+                    self.style_ob : style_ob,
                     self.lr : lr
                 }
 
@@ -615,7 +635,8 @@ class INIT(object) :
                 self.writer.add_summary(summary_str, counter)
 
                 # Update G
-                batch_A_images, batch_B_images, fake_A, fake_B, _, g_loss, summary_str = self.sess.run([self.real_A, self.real_B, self.fake_A, self.fake_B, self.G_optim, self.Generator_loss, self.G_loss], feed_dict = train_feed_dict)
+                batch_A_images, batch_B_images, batch_A_instances, batch_B_instances, fake_A, fake_B, fake_a, fake_b, _, g_loss, summary_str = \
+                    self.sess.run([self.real_A, self.real_B, self.real_a, self.real_b, self.fake_A, self.fake_B, self.fake_a, self.fake_b, self.G_optim, self.Generator_loss, self.G_loss], feed_dict = train_feed_dict)
                 self.writer.add_summary(summary_str, counter)
 
                 # display training status
@@ -789,3 +810,14 @@ class INIT(object) :
                         '../../..' + os.path.sep + image_path), self.img_w, self.img_h))
                 index.write("</tr>")
         index.close()
+
+    def dataset(self):
+        if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainA):
+            pass
+        else:
+            if not os.path.exists(self.dataset_before_split):
+                # generate all the paths
+                pass
+            # split data
+
+
