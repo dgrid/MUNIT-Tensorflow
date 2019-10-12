@@ -297,7 +297,6 @@ class MUNIT(object) :
         real_A_logit, real_B_logit = self.discriminate_real(self.domain_A, self.domain_B)
         fake_A_logit, fake_B_logit = self.discriminate_fake(x_ba, x_ab)
 
-        real_a_logit, real_b_logit = self.d
 
         """ Define Loss """
         G_ad_loss_a = generator_loss(self.gan_type, fake_A_logit)
