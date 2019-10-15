@@ -5,6 +5,7 @@ import time
 import random
 from tqdm import tqdm
 from tensorflow.contrib.data import batch_and_drop_remainder
+from sklearn.model_selection import train_test_split
 
 
 class INIT(object) :
@@ -33,6 +34,7 @@ class INIT(object) :
         self.img_h = args.img_h
         self.img_w = args.img_w
         self.img_ch = args.img_ch
+        self.istn_w = args.intn_w
 
         self.init_lr = args.lr
         self.ch = args.ch
@@ -68,9 +70,15 @@ class INIT(object) :
         self.sample_dir = os.path.join(args.sample_dir, self.model_dir)
         check_folder(self.sample_dir)
 
-        self.trainA_dataset = glob('./dataset/{}/*.*'.format(self.dataset_name + '/trainA'))
-        self.trainB_dataset = glob('./dataset/{}/*.*'.format(self.dataset_name + '/trainB'))
-        self.dataset_num = max(len(self.trainA_dataset), len(self.trainB_dataset))
+        self.data_folder = args.dataset
+        self.dataset_before_split = os.path.join(self.data_folder, 'all_data.npy')
+        self.dataset_path_trainA = os.path.join(self.data_folder, 'trainA.npy')
+        self.dataset_path_trainB = os.path.join(self.data_folder, 'trainB.npy')
+        self.dataset_path_testA = os.path.join(self.data_folder, 'testA.npy')
+        self.dataset_path_testB = os.path.join(self.data_folder, 'testB.npy')
+
+
+        # self.dataset_num = max(len(self.trainA_dataset), len(self.trainB_dataset))
 
         print("##### Information #####")
         print("# gan type : ", self.gan_type)
@@ -281,7 +289,7 @@ class INIT(object) :
         """ Input Image"""
         Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
 
-        self.dataset()
+        self.dataset_num = self.dataset()
         trainA = tf.data.Dataset.from_tensor_slices(self.dataset_path_trainA)
         trainB = tf.data.Dataset.from_tensor_slices(self.dataset_path_trainB)
 
@@ -407,17 +415,15 @@ class INIT(object) :
         real_A_logit, real_B_logit = self.discriminate_real(self.domain_A, self.domain_B)
         fake_A_logit, fake_B_logit = self.discriminate_fake(x_ba, x_ab)
         # instance (cross domain)
-        real_a_logit, real_b_logit = self.discriminator_real(self.domain_a, self.domain_b)
+        real_a_logit, real_b_logit = self.discriminate_real(self.domain_a, self.domain_b)
         fake_a_logit, fake_b_logit = self.discriminate_fake(x_ba_o, x_ab_o)
         # instance (cross granularity: global)
         # real_ag_logit, real_bg_logit = self.discriminate_real(self)
         fake_ag_logit, fake_bg_logit = self.discriminate_fake(x_Aa, x_Bb)
         # instance (cross granularity: background)
         fake_abg_logit, fake_bbg_logit = self.discriminate_fake(x_Aa_bg, x_Bb_bg)
-        # todo
 
         """ Define Loss """
-        # todo
         # Generator loss
         G_ad_loss_a = generator_loss(self.gan_type, fake_A_logit)
         G_ad_loss_b = generator_loss(self.gan_type, fake_B_logit)
@@ -494,18 +500,18 @@ class INIT(object) :
                            self.recon_o_s_w * recon_s_a + \
                            self.recon_o_c_w * recon_c_a + \
                            self.recon_o_cyc_w * cyc_recon_a + \
-                           self.recon_x_cyc_w_o * cyc_recon_a + \
-                           self.recon_x_cyc_w_o * cyc_recon_ab + \
-                           self.recon_x_cyc_w_o * cyc_recon_ag
+                           self.recon_o_cyc_w * cyc_recon_a + \
+                           self.recon_o_cyc_w * cyc_recon_ab + \
+                           self.recon_o_cyc_w * cyc_recon_ag
 
         Generator_b_loss = self.gan_w * G_ad_loss_bo + \
                            self.recon_o_w * recon_b + \
                            self.recon_o_s_w * recon_s_b + \
                            self.recon_o_c_w * recon_c_b + \
                            self.recon_o_cyc_w * cyc_recon_b + \
-                           self.recon_x_cyc_w_o * cyc_recon_b + \
-                           self.recon_x_cyc_w_o * cyc_recon_bb + \
-                           self.recon_x_cyc_w_o * cyc_recon_bg
+                           self.recon_o_cyc_w * cyc_recon_b + \
+                           self.recon_o_cyc_w * cyc_recon_bb + \
+                           self.recon_o_cyc_w * cyc_recon_bg
 
         Discriminator_A_loss = self.gan_w * D_ad_loss_a + self.gan_w * D_ad_loss_ao
         Discriminator_B_loss = self.gan_w * D_ad_loss_b + self.gan_w * D_ad_loss_bo
@@ -564,8 +570,8 @@ class INIT(object) :
         test_constent_oa, _ = self.Encoder_a(self.test_instance, reuse=True)
         test_constent_ob, _ = self.Encoder_b(self.test_instance, reuse=True)
 
-        self.test_fake_oa = self.Dencoder_a(content_b=test_constent_oa, style_a=self.test_local_style, reuse=True)
-        self.test_fake_ob = self.Dencoder_a(content_a=test_constent_ob, style_b=self.test_local_style, reuse=True)
+        self.test_fake_oa = self.Decoder_a(content_b=test_constent_oa, style_a=self.test_local_style, reuse=True)
+        self.test_fake_ob = self.Decoder_b(content_a=test_constent_ob, style_b=self.test_local_style, reuse=True)
 
         """ Guided Image Translation """
         self.content_image = tf.placeholder(tf.float32, [1, self.img_h, self.img_w, self.img_ch], name='content_image')
@@ -578,7 +584,7 @@ class INIT(object) :
             guide_content_A, guide_style_A = self.Encoder_A(self.content_image, reuse=True)
             guide_content_B, guide_style_B = self.Encoder_B(self.style_image, reuse=True)
             guide_content_oa, guide_style_oa = self.Encoder_a(self.content_o, reuse=True)
-            guide_content_ob, guide_style_ob = self.Encoder_b(self.style_o, reuses=True)
+            guide_content_ob, guide_style_ob = self.Encoder_b(self.style_o, reuse=True)
 
         else :
             guide_content_B, guide_style_B = self.Encoder_B(self.content_image, reuse=True)
@@ -629,8 +635,8 @@ class INIT(object) :
                 train_feed_dict = {
                     self.style_a : style_a,
                     self.style_b : style_b,
-                    self.style_oa : style_oa,
-                    self.style_ob : style_ob,
+                    self.style_ao : style_oa,
+                    self.style_bo : style_ob,
                     self.lr : lr
                 }
 
@@ -817,38 +823,38 @@ class INIT(object) :
 
 
 
-    def dataset(self, data_folder):
-        if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainA):
+    def dataset(self):
+        if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainB) and os.path.exists(self.dataset_path_testA) and os.path.exists(self.dataset_path_testB):
             trainA = np.load(self.dataset_path_trainA)
             trainB = np.load(self.dataset_path_trainB)
         else:
             if not os.path.exists(self.dataset_before_split):
                 folder_name = ['cloudy', 'rainy', 'sunny', 'night']
                 all_images = set()
-                weather_list = os.listdir(data_folder)
+                weather_list = os.listdir(self.data_folder)
                 for weather in weather_list:
                     if weather in folder_name:
-                        path = os.path.join(data_folder, weather)
+                        path = os.path.join(self.data_folder, weather)
                         get_files(path, all_images)
-                pass
+                np.save(self.dataset_before_split, list(all_images))
             else:
-                all_data = np.load(self.dataset_before_split)
-                trainA = []
-                trainB = []
-                print('dividing data into part A & part B')
-                for item in tqdm(all_data):
-                    if random.rand() > 0.5:
-                        trainA.append(item)
-                    else:
-                        trainB.append(item)
+                all_images = np.load(self.dataset_before_split)
+            trainA = []
+            trainB = []
+            print('dividing data into part A & part B')
+            for item in tqdm(all_images):
+                if random.random() > 0.5:
+                    trainA.append(item)
+                else:
+                    trainB.append(item)
 
-        # split data
-        from sklearn.model_selection import train_test_split
-        trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=self.test_ration, random_state=0)
+            # split data
+            trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=self.test_ration, random_state=0)
+            np.save(self.dataset_path_trainA, trainA)
+            np.save(self.dataset_path_trainB, trainB)
+            np.save(self.dataset_path_testA, testA)
+            np.save(self.dataset_path_testB, testB)
 
-        np.save(self.dataset_path_trainA, trainA)
-        np.save(self.dataset_path_trainB, trainB)
-        np.save(self.dataset_path_testA, testA)
-        np.save(self.dataset_path_testB, testB)
+        return max(len(trainA), len(trainB))
 
 
