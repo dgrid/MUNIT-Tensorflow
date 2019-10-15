@@ -280,19 +280,10 @@ class INIT(object) :
 
         """ Input Image"""
         Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
-        # todo
 
-        trainA = tf.data.Dataset.from_tensor_slices(self.trainA_dataset)
-        trainA_o = tf.data.Dataset.from_tensor_slices(self.trainA_instance)
-        trainA_bg = tf.data.Dataset.from_tensor_slices(self.trainA_background)
-
-        trainB = tf.data.Dataset.from_tensor_slices(self.trainB_dataset)
-        trainB_o = tf.data.Dataset.from_tensor_slices(self.trainB_instance)
-        trainB_bg = tf.data.Dataset.from_tensor_slices(self.trainB_background)
-
-        trainA, trainB, _, _ = self.dataset()
-        trainA = tf.data.Dataset.from_tensor_slices(trainA)
-        trainA = tf.data.Dataset.from_tensor_slices(trainB)
+        self.dataset()
+        trainA = tf.data.Dataset.from_tensor_slices(self.dataset_path_trainA)
+        trainB = tf.data.Dataset.from_tensor_slices(self.dataset_path_trainB)
 
         trainA = trainA.prefetch(self.batch_size).\
             shuffle(self.dataset_num).\
@@ -826,19 +817,18 @@ class INIT(object) :
 
 
 
-    def dataset(self):
+    def dataset(self, data_folder):
         if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainA):
             trainA = np.load(self.dataset_path_trainA)
             trainB = np.load(self.dataset_path_trainB)
         else:
             if not os.path.exists(self.dataset_before_split):
-                data_folder = ''
                 folder_name = ['cloudy', 'rainy', 'sunny', 'night']
                 all_images = set()
-                weather_list = os.listdir(dataset_folder)
+                weather_list = os.listdir(data_folder)
                 for weather in weather_list:
                     if weather in folder_name:
-                        path = os.path.join(dataset_folder, weather)
+                        path = os.path.join(data_folder, weather)
                         get_files(path, all_images)
                 pass
             else:
@@ -856,6 +846,9 @@ class INIT(object) :
         from sklearn.model_selection import train_test_split
         trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=self.test_ration, random_state=0)
 
-        return self.dataset_path_trainA, self.dataset_path_trainB
+        np.save(self.dataset_path_trainA, trainA)
+        np.save(self.dataset_path_trainB, trainB)
+        np.save(self.dataset_path_testA, testA)
+        np.save(self.dataset_path_testB, testB)
 
 

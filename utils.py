@@ -33,7 +33,7 @@ class ImageData:
     def object_resize(self, filename, height=120, width=120):
     # object will be resized to 120*120 pixels
         x = tf.read_file(filename)
-        x_decode = tf.image.decode_jpeg(x, channels=self.channels)
+        x_decode = tf.image.decode_png(x, channels=self.channels)
         img = tf.image.resize_images(x_decode, [height, width])
         img = tf.cast(img, tf.float32) / 127.5 - 1
         return img
@@ -42,7 +42,7 @@ class ImageData:
         # the short side of image will be resized to 360 pixels
         # due to the limitation of GPU memory
         x = tf.read_file(filename)
-        img = tf.image.decode_jpeg(x, channels=self.channels)
+        img = tf.image.decode_png(x, channels=self.channels)
         if resize:
             img = tf.image.resize_images(img, [height, width])
         img = tf.cast(img, tf.float32) / 127.5 - 1
@@ -139,14 +139,26 @@ def pytorch_kaiming_weight_factor(a=0.0, activation_function='relu', uniform=Fal
 
     return factor, mode, uniform
 
-    def get_files(dir, files):
-        flist = os.listdir(dir)
-        for file in flist:
-            new_path = os.path.join(dir, file)
-            if os.path.isfile(new_path):
-                num = file.count('-')
-                index = file.rstrip('.png').rsplit('_', num - 1)
-                if len(index) == 1:
-                    files.add(new_path)
-            if os.path.isdir(new_path):
-                get_files(new_path, files)
+def get_files(dir, files):
+    flist = os.listdir(dir)
+    for file in flist:
+        new_path = os.path.join(dir, file)
+        if os.path.isfile(new_path):
+            num = file.count('_')
+            index = file.rstrip('.png').rsplit('_', num - 1)
+            image_index = index[1]
+            if not files.has_key(image_index):
+                image = {'global': '',
+                         'instance': [],
+                         'background': ''}
+                files[image_index] = image
+
+            if len(index) == 1:
+                files[image_index]['global'] = new_path
+            elif index[-1] == 'beckground':
+                files[image_index]['background'] = new_path
+            else:
+                files[image_index]['instance'].append(new_path)
+
+        if os.path.isdir(new_path):
+            get_files(new_path, files)
