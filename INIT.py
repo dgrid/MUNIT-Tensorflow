@@ -2,6 +2,8 @@ from ops import *
 from utils import *
 from glob import glob
 import time
+import random
+from tqdm import tqdm
 from tensorflow.contrib.data import batch_and_drop_remainder
 
 
@@ -288,49 +290,33 @@ class INIT(object) :
         trainB_o = tf.data.Dataset.from_tensor_slices(self.trainB_instance)
         trainB_bg = tf.data.Dataset.from_tensor_slices(self.trainB_background)
 
-        trainA = zip()
+        trainA, trainB, _, _ = self.dataset()
+        trainA = tf.data.Dataset.from_tensor_slices(trainA)
+        trainA = tf.data.Dataset.from_tensor_slices(trainB)
 
-        # trainA = trainA.map(Image_Data_Class.image_resize)
-        # trainB = trainB.Dataset.map(Image_Data_Class.image_resize)
-        #
-        # traina = tf.data.Dataset.fron_tensor_slices(self.trainA_instance).map(Image_Data_Class.object_resize)
-        # trainb = tf.data.Dataset.fron_tensor_slices(self.trainb_instance).map(Image_Data_Class.object_resize)
-        #
-        # def data_generator(a, b):
-        #     for x, y in zip(a, b):
-        #         yield {'image': [x], 'instance': [y]}
-        #
-        # trainA = tf.data.Dataset.from_generator(generator=data_generator(trainA, traina),
-        #                                         output_types={'image': tf.float32, 'instance': tf.float32})
-        # trainB = tf.data.Dataset.from_generator(generator=data_generator(trainB, trainb),
-        #                                         output_types={'image': tf.float32, 'instance': tf.float32})
-        #
-        # trainA = trainA.repeat().padded_batch(4, padded_shapes={'image':[None], 'instance':[None]}).prefetch(self.batch_size).shuffle(self.dataset_num).apply(batch_and_drop_remainder(self.batch_size)).repeat()
-        # trainB = trainB.repeat().padded_batch(4, padded_shapes={'image':[None], 'instance':[None]}).prefetch(self.batch_size).shuffle(self.dataset_num).apply(batch_and_drop_remainder(self.batch_size)).repeat()
-        #
-        # # trainA = trainA.prefetch(self.batch_size).shuffle(self.dataset_num).map(Image_Data_Class.image_processing, num_parallel_calls=8).apply(batch_and_drop_remainder(self.batch_size)).repeat()
-        # # trainB = trainB.prefetch(self.batch_size).shuffle(self.dataset_num).map(Image_Data_Class.image_processing, num_parallel_calls=8).apply(batch_and_drop_remainder(self.batch_size)).repeat()
-        #
-        # trainA_iterator = trainA.make_one_shot_iterator()
-        # trainB_iterator = trainB.make_one_shot_iterator()
-        #
-        # A = trainA_iterator.get_next()
-        # B = trainB_iterator.get_next()
-        #
-        # self.domain_A = A['image']
-        # self.domain_B = B['image']
-        #
-        # # input Instance
-        # # if ROI
-        # # if crop image
-        # # todo
-        # # output
-        # # instance
-        # self.domain_a = A['instance']
-        # self.domain_b = B['instance']
-        # # background
-        # self.domain_a_bg
-        # self.domain_b_bg
+        trainA = trainA.prefetch(self.batch_size).\
+            shuffle(self.dataset_num).\
+            map(Image_Data_Class.image_processing,num_parallel_calls=8).\
+            apply(batch_and_drop_remainder(self.batch_size)).repeat()
+
+        trainB = trainB.prefetch(self.batch_size).\
+            shuffle(self.dataset_num).\
+            map(Image_Data_Class.image_processing,num_parallel_calls=8).\
+            apply(batch_and_drop_remainder(self.batch_size)).repeat()
+
+        trainA_iterator = trainA.make_one_shot_iterator()
+        trainB_iterator = trainB.make_one_shot_iterator()
+
+        self.domain_A_all = trainA_iterator.get_next()
+        self.domain_B_all = trainB_iterator.get_next()
+
+        self.domain_A = self.domain_A_all['global']
+        self.domain_a = self.domain_A_all['instances']
+        self.domain_a_bg = self.domain_A_all['background']
+
+        self.domain_B = self.domain_B_all['global']
+        self.domain_b = self.domain_B_all['instances']
+        self.domain_b_bg = self.domain_B_all['background']
 
 
         """ Define Encoder, Generator, Discriminator """
@@ -358,22 +344,22 @@ class INIT(object) :
         x_aa = self.Decoder_A(content_B=content_a, style_A=style_a_prime)
         x_bb = self.Decoder_B(content_A=content_b, style_B=style_b_prime)
         # instance
-        x_aa_o = self.Decoder_a(content_B=c_a, style_A=s_a_prime)
-        x_bb_o = self.Decoder_b(content_A=c_b, style_B=s_b_prime)
+        x_aa_o = self.Decoder_a(content_b=c_a, style_a=s_a_prime)
+        x_bb_o = self.Decoder_b(content_a=c_b, style_b=s_b_prime)
 
         # decode (cross domain)
         # among images
         x_ba = self.Decoder_A(content_B=content_b, style_A=self.style_a, reuse=True)
         x_ab = self.Decoder_B(content_A=content_a, style_B=self.style_b, reuse=True)
         # among instances
-        x_ba_o = self.Decoder_a(content_B=c_b, style_A=self.style_ao, reuse=True)
-        x_ab_o = self.Decoder_b(content_A=c_a, style_B=self.style_bo, reuse=True)
+        x_ba_o = self.Decoder_a(content_b=c_b, style_a=self.style_ao, reuse=True)
+        x_ab_o = self.Decoder_b(content_a=c_a, style_b=self.style_bo, reuse=True)
 
         # decode (cross granularity)
-        x_Aa = self.Decoder_a(content_B=c_a, style_A=style_a_prime, reuse=True)
-        x_Bb = self.Decoder_b(content_A=c_b, style_A=style_b_prime, reuse=True)
-        x_Aa_bg = self.Decoder_a(content_a=c_a, style_b=s_a_bg_prime, reuse=True)
-        x_Bb_bg = self.Decoder_b(content_b=c_b, style_aa=s_b_bg_prime, reuse=True)
+        x_Aa = self.Decoder_a(content_b=c_a, style_a=style_a_prime, reuse=True)
+        x_Bb = self.Decoder_b(content_a=c_b, style_b=style_b_prime, reuse=True)
+        x_Aa_bg = self.Decoder_a(content_b=c_a, style_a=s_a_bg_prime, reuse=True)
+        x_Bb_bg = self.Decoder_b(content_a=c_b, style_b=s_b_bg_prime, reuse=True)
 
 
         # encode again
@@ -396,14 +382,36 @@ class INIT(object) :
             x_aba = self.Decoder_A(content_B=content_a_, style_A=style_a_prime, reuse=True)
             x_bab = self.Decoder_B(content_A=content_b_, style_B=style_b_prime, reuse=True)
 
+            x_aba_o = self.Decoder_a(content_b=c_a_, style_a=s_a_prime)
+            x_bab_o = self.Decoder_b(content_a=c_b_, style_b=s_b_prime)
+
+            x_aba_og = self.Decoder_a(content_b=c_a_o, style_a=s_a_prime)
+            x_bab_og = self.Decoder_b(content_a=c_b_o, style_b=s_b_prime)
+
+            x_aba_ob = self.Decoder_a(content_b=c_a_o, style_a=s_a_bg_prime)
+            x_bab_ob = self.Decoder_b(content_a=c_b_o, style_b=s_b_bg_prime)
+
             cyc_recon_A = L1_loss(x_aba, self.domain_A)
             cyc_recon_B = L1_loss(x_bab, self.domain_B)
+
+            cyc_recon_a = L1_loss(x_aba_o, self.domain_a)
+            cyc_recon_b = L1_loss(x_bab_o, self.domain_b)
+
+            cyc_recon_ag = L1_loss(x_aba_og, self.domain_a)
+            cyc_recon_bg = L1_loss(x_bab_og, self.domain_b)
+
+            cyc_recon_ab = L1_loss(x_aba_ob, self.domain_a)
+            cyc_recon_bb = L1_loss(x_bab_ob, self.domain_b)
 
         else :
             cyc_recon_A = 0.0
             cyc_recon_B = 0.0
             cyc_recon_a = 0.0
             cyc_recon_b = 0.0
+            cyc_recon_ag = 0.0
+            cyc_recon_bg = 0.0
+            cyc_recon_ab = 0.0
+            cyc_recon_bb = 0.0
 
         real_A_logit, real_B_logit = self.discriminate_real(self.domain_A, self.domain_B)
         fake_A_logit, fake_B_logit = self.discriminate_fake(x_ba, x_ab)
@@ -494,14 +502,19 @@ class INIT(object) :
                            self.recon_o_w * recon_a + \
                            self.recon_o_s_w * recon_s_a + \
                            self.recon_o_c_w * recon_c_a + \
-                           self.recon_o_cyc_w * cyc_recon_a # todo
-
+                           self.recon_o_cyc_w * cyc_recon_a + \
+                           self.recon_x_cyc_w_o * cyc_recon_a + \
+                           self.recon_x_cyc_w_o * cyc_recon_ab + \
+                           self.recon_x_cyc_w_o * cyc_recon_ag
 
         Generator_b_loss = self.gan_w * G_ad_loss_bo + \
                            self.recon_o_w * recon_b + \
                            self.recon_o_s_w * recon_s_b + \
                            self.recon_o_c_w * recon_c_b + \
-                           self.recon_o_cyc_w * cyc_recon_b # todo
+                           self.recon_o_cyc_w * cyc_recon_b + \
+                           self.recon_x_cyc_w_o * cyc_recon_b + \
+                           self.recon_x_cyc_w_o * cyc_recon_bb + \
+                           self.recon_x_cyc_w_o * cyc_recon_bg
 
         Discriminator_A_loss = self.gan_w * D_ad_loss_a + self.gan_w * D_ad_loss_ao
         Discriminator_B_loss = self.gan_w * D_ad_loss_b + self.gan_w * D_ad_loss_bo
@@ -811,13 +824,38 @@ class INIT(object) :
                 index.write("</tr>")
         index.close()
 
+
+
     def dataset(self):
         if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainA):
-            pass
+            trainA = np.load(self.dataset_path_trainA)
+            trainB = np.load(self.dataset_path_trainB)
         else:
             if not os.path.exists(self.dataset_before_split):
-                # generate all the paths
+                data_folder = ''
+                folder_name = ['cloudy', 'rainy', 'sunny', 'night']
+                all_images = set()
+                weather_list = os.listdir(dataset_folder)
+                for weather in weather_list:
+                    if weather in folder_name:
+                        path = os.path.join(dataset_folder, weather)
+                        get_files(path, all_images)
                 pass
-            # split data
+            else:
+                all_data = np.load(self.dataset_before_split)
+                trainA = []
+                trainB = []
+                print('dividing data into part A & part B')
+                for item in tqdm(all_data):
+                    if random.rand() > 0.5:
+                        trainA.append(item)
+                    else:
+                        trainB.append(item)
+
+        # split data
+        from sklearn.model_selection import train_test_split
+        trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=self.test_ration, random_state=0)
+
+        return self.dataset_path_trainA, self.dataset_path_trainB
 
 

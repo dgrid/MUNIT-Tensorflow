@@ -138,3 +138,15 @@ def pytorch_kaiming_weight_factor(a=0.0, activation_function='relu', uniform=Fal
         mode = 'FAN_IN'
 
     return factor, mode, uniform
+
+    def get_files(dir, files):
+        flist = os.listdir(dir)
+        for file in flist:
+            new_path = os.path.join(dir, file)
+            if os.path.isfile(new_path):
+                num = file.count('-')
+                index = file.rstrip('.png').rsplit('_', num - 1)
+                if len(index) == 1:
+                    files.add(new_path)
+            if os.path.isdir(new_path):
+                get_files(new_path, files)
