@@ -47,6 +47,7 @@ class INIT(object) :
         self.recon_c_w = args.recon_c_w
         self.recon_x_cyc_w = args.recon_x_cyc_w
         # instance
+        self.gan_o_w = args.gan_o_w
         self.recon_o_w = args.recon_o_w
         self.recon_o_s_w = args.recon_o_s_w
         self.recon_o_c_w =args.recon_o_c_w
@@ -70,7 +71,8 @@ class INIT(object) :
         self.sample_dir = os.path.join(args.sample_dir, self.model_dir)
         check_folder(self.sample_dir)
 
-        self.data_folder = args.dataset
+        self.data_set = args.dataset
+        self.data_folder = '/home/ubuntu/dataset'
         self.dataset_before_split = os.path.join(self.data_folder, 'all_data.npy')
         self.dataset_path_trainA = os.path.join(self.data_folder, 'trainA.npy')
         self.dataset_path_trainB = os.path.join(self.data_folder, 'trainB.npy')
@@ -495,7 +497,7 @@ class INIT(object) :
                            self.recon_c_w * recon_content_B + \
                            self.recon_x_cyc_w * cyc_recon_B
 
-        Generator_a_loss = self.gan_w * G_ad_loss_ao + \
+        Generator_a_loss = self.gan_o_w * G_ad_loss_ao + \
                            self.recon_o_w * recon_a + \
                            self.recon_o_s_w * recon_s_a + \
                            self.recon_o_c_w * recon_c_a + \
@@ -504,7 +506,7 @@ class INIT(object) :
                            self.recon_o_cyc_w * cyc_recon_ab + \
                            self.recon_o_cyc_w * cyc_recon_ag
 
-        Generator_b_loss = self.gan_w * G_ad_loss_bo + \
+        Generator_b_loss = self.gan_o_w * G_ad_loss_bo + \
                            self.recon_o_w * recon_b + \
                            self.recon_o_s_w * recon_s_b + \
                            self.recon_o_c_w * recon_c_b + \
@@ -513,8 +515,8 @@ class INIT(object) :
                            self.recon_o_cyc_w * cyc_recon_bb + \
                            self.recon_o_cyc_w * cyc_recon_bg
 
-        Discriminator_A_loss = self.gan_w * D_ad_loss_a + self.gan_w * D_ad_loss_ao
-        Discriminator_B_loss = self.gan_w * D_ad_loss_b + self.gan_w * D_ad_loss_bo
+        Discriminator_A_loss = self.gan_w * D_ad_loss_a + self.gan_o_w * D_ad_loss_ao
+        Discriminator_B_loss = self.gan_w * D_ad_loss_b + self.gan_o_w * D_ad_loss_bo
 
         self.Generator_loss = Generator_A_loss + Generator_B_loss + \
                               Generator_a_loss + Generator_b_loss + \
@@ -849,12 +851,10 @@ class INIT(object) :
                     trainB.append(item)
 
             # split data
-            trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=self.test_ration, random_state=0)
+            trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
             np.save(self.dataset_path_trainA, trainA)
             np.save(self.dataset_path_trainB, trainB)
             np.save(self.dataset_path_testA, testA)
             np.save(self.dataset_path_testB, testB)
 
         return max(len(trainA), len(trainB))
-
-
