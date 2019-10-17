@@ -72,12 +72,13 @@ class INIT(object) :
         check_folder(self.sample_dir)
 
         self.data_set = args.dataset
-        self.data_folder = '/home/ubuntu/dataset'
-        self.dataset_before_split = os.path.join(self.data_folder, 'all_data.npy')
-        self.dataset_path_trainA = os.path.join(self.data_folder, 'trainA.npy')
-        self.dataset_path_trainB = os.path.join(self.data_folder, 'trainB.npy')
-        self.dataset_path_testA = os.path.join(self.data_folder, 'testA.npy')
-        self.dataset_path_testB = os.path.join(self.data_folder, 'testB.npy')
+        self.data_folder = '/home/developer/dataset'
+
+        self.dataset_before_split = os.path.join(self.data_folder, 'data', 'all_data.npy')
+        self.dataset_path_trainA = os.path.join(self.data_folder, 'data', 'trainA.npy')
+        self.dataset_path_trainB = os.path.join(self.data_folder, 'data', 'trainB.npy')
+        self.dataset_path_testA = os.path.join(self.data_folder, 'data', 'testA.npy')
+        self.dataset_path_testB = os.path.join(self.data_folder, 'data', 'testB.npy')
 
 
         # self.dataset_num = max(len(self.trainA_dataset), len(self.trainB_dataset))
