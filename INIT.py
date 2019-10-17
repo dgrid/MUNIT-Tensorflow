@@ -295,8 +295,11 @@ class INIT(object) :
         self.dataset_num = self.dataset()
         os.system("pause")
 
-        trainA = tf.data.Dataset.from_tensor_slices(self.dataset_path_trainA)
-        trainB = tf.data.Dataset.from_tensor_slices(self.dataset_path_trainB)
+        trainA = np.load(self.dataset_path_trainA)
+        trainB = np.load(self.dataset_path_trainB)
+
+        trainA = tf.data.Dataset.from_tensor_slices(trainA[0])
+        trainB = tf.data.Dataset.from_tensor_slices(trainB[0])
 
         trainA = trainA.prefetch(self.batch_size).\
             shuffle(self.dataset_num).\
