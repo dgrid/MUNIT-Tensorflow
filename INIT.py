@@ -322,6 +322,8 @@ class INIT(object) :
 
 
         """ Define Encoder, Generator, Discriminator """
+        print()
+        print(" Define Encoder, Generator, Discriminator ")
         self.style_a = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_a')
         self.style_b = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_b')
 
@@ -427,6 +429,7 @@ class INIT(object) :
         fake_abg_logit, fake_bbg_logit = self.discriminate_fake(x_Aa_bg, x_Bb_bg)
 
         """ Define Loss """
+        print(" Define Loss ")
         # Generator loss
         G_ad_loss_a = generator_loss(self.gan_type, fake_A_logit)
         G_ad_loss_b = generator_loss(self.gan_type, fake_B_logit)
@@ -525,6 +528,7 @@ class INIT(object) :
         self.Discriminator_loss = Discriminator_A_loss + Discriminator_B_loss + regularization_loss('discriminator')
 
         """ Training """
+        print("define training")
         t_vars = tf.trainable_variables()
         G_vars = [var for var in t_vars if 'decoder' in var.name or 'encoder' in var.name]
         D_vars = [var for var in t_vars if 'discriminator' in var.name]
@@ -577,6 +581,7 @@ class INIT(object) :
         self.test_fake_ob = self.Decoder_b(content_a=test_constent_ob, style_b=self.test_local_style, reuse=True)
 
         """ Guided Image Translation """
+        print("define translation")
         self.content_image = tf.placeholder(tf.float32, [1, self.img_h, self.img_w, self.img_ch], name='content_image')
         self.style_image = tf.placeholder(tf.float32, [1, self.img_h, self.img_w, self.img_ch], name='guide_style_image')
 
@@ -827,6 +832,8 @@ class INIT(object) :
 
 
     def dataset(self):
+        print("_"*20)
+        print("start to process data")
         if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainB) and os.path.exists(self.dataset_path_testA) and os.path.exists(self.dataset_path_testB):
             trainA = np.load(self.dataset_path_trainA)
             trainB = np.load(self.dataset_path_trainB)
@@ -857,5 +864,8 @@ class INIT(object) :
             np.save(self.dataset_path_trainB, trainB)
             np.save(self.dataset_path_testA, testA)
             np.save(self.dataset_path_testB, testB)
+
+        print("data ready")
+        print()
 
         return max(len(trainA), len(trainB))

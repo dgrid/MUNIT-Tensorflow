@@ -145,9 +145,12 @@ def check_args(args):
 """main"""
 def main():
     # parse arguments
+    print("read args")
     args = parse_args()
     if args is None:
       exit()
+      print()
+
 
     # open session
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
