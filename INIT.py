@@ -293,6 +293,8 @@ class INIT(object) :
         Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
 
         self.dataset_num = self.dataset()
+        os.system("pause")
+
         trainA = tf.data.Dataset.from_tensor_slices(self.dataset_path_trainA)
         trainB = tf.data.Dataset.from_tensor_slices(self.dataset_path_trainB)
 
