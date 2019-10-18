@@ -72,7 +72,7 @@ class INIT(object) :
         check_folder(self.sample_dir)
 
         self.data_set = args.dataset
-        self.data_folder = '/home/developer/dataset'
+        self.data_folder = '/home/user/share/dataset'
 
         self.dataset_before_split = os.path.join(self.data_folder, 'data', 'all_data.npy')
         self.dataset_path_trainA = os.path.join(self.data_folder, 'data', 'trainA.npy')
