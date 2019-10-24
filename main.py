@@ -58,7 +58,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument('--phase', type=str, default='train', help='train or test or guide')
     parser.add_argument('--model', type=str, default='INIT', help='which model to use')
-    parser.add_argument('--dataset', type=str, default='summer2winter', help='dataset_name')
+    # parser.add_argument('--dataset', type=str, default='summer2winter', help='dataset_name')
     parser.add_argument('--augment_flag', type=bool, default=False, help='Image augmentation use or not')
 
     # parser.add_argument('--epoch', type=int, default=10, help='The number of epochs to run')
@@ -93,7 +93,7 @@ def parse_args():
     parser.add_argument('--recon_o_w', type=float, default=10.0, help='weight of image reconstruction loss-instance')
     parser.add_argument('--recon_o_s_w', type=float, default=1.0, help='weight of style reconstruction loss-instance')
     parser.add_argument('--recon_o_c_w', type=float, default=1.0, help='weight of content reconstruction loss-instance')
-    parser.add_argument('--rrecon_o_c_w', type=float, default=0.0,
+    parser.add_argument('--recon_o_cyc_w', type=float, default=0.0,
                         help='weight of explicit style augmented cycle consistency loss-instance')
 
     parser.add_argument('--ch', type=int, default=64, help='base channel number per layer')
@@ -107,15 +107,15 @@ def parse_args():
     parser.add_argument('--img_h', type=int, default=256, help='The size of image hegiht')
     parser.add_argument('--img_w', type=int, default=256, help='The size of image width')
     parser.add_argument('--img_ch', type=int, default=3, help='The size of image channel')
-    parser.add_argument('--intn_w', type=int, default=120, help='The size of instance')
+    parser.add_argument('--inst_w', type=int, default=120, help='The size of instance')
 
-    parser.add_argument('--checkpoint_dir', type=str, default='checkpoint',
+    parser.add_argument('--checkpoint_dir', type=str, default='INIT_checkpoint',
                         help='Directory name to save the checkpoints')
-    parser.add_argument('--result_dir', type=str, default='results',
+    parser.add_argument('--result_dir', type=str, default='INIT_results',
                         help='Directory name to save the generated images')
-    parser.add_argument('--log_dir', type=str, default='logs',
+    parser.add_argument('--log_dir', type=str, default='INIT_logs',
                         help='Directory name to save training logs')
-    parser.add_argument('--sample_dir', type=str, default='samples',
+    parser.add_argument('--sample_dir', type=str, default='INIT_samples',
                         help='Directory name to save the samples on training')
 
     parser.add_argument('--dataset', type=str, default='INIT',

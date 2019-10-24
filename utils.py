@@ -49,13 +49,13 @@ class ImageData:
         return img
 
     def processing(self, file):
-        global_image = self.image_resize(file['image'])
+        global_image = self.image_resize(file['global'])
         instance = []
         for file_path in file['instance']:
             instance.append(self.object_resize(file_path))
         background = self.image_resize(file['background'])
 
-        return {'image': global_image,
+        return {'global': global_image,
                 'background': background,
                 'instance': instance}
 
@@ -146,8 +146,8 @@ def get_files(dir, files):
         if os.path.isfile(new_path):
             num = file.count('_')
             index = file.rstrip('.png').rsplit('_', num - 1)
-            image_index = index[1]
-            if not files.has_key(image_index):
+            image_index = index[0]
+            if image_index not in files:
                 image = {'global': '',
                          'instance': [],
                          'background': ''}

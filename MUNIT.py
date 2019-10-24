@@ -53,6 +53,12 @@ class MUNIT(object) :
         self.n_dis = args.n_dis
         self.n_scale = args.n_scale
 
+        print()
+
+        print("##### testing #####")
+        print(self.sample_dir)
+        print(self.model_dir)
+
         self.sample_dir = os.path.join(args.sample_dir, self.model_dir)
         check_folder(self.sample_dir)
 

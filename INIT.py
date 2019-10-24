@@ -34,7 +34,7 @@ class INIT(object) :
         self.img_h = args.img_h
         self.img_w = args.img_w
         self.img_ch = args.img_ch
-        self.istn_w = args.intn_w
+        self.inst_w_w = args.inst_w
 
         self.init_lr = args.lr
         self.ch = args.ch
@@ -68,11 +68,12 @@ class INIT(object) :
         self.n_dis = args.n_dis
         self.n_scale = args.n_scale
 
-        self.sample_dir = os.path.join(args.sample_dir, self.model_dir)
+        # self.sample_dir = os.path.join(args.sample_dir, self.model_dir)
+        self.sample_dir = os.path.join(args.sample_dir, 'INIT_lsgan')
         check_folder(self.sample_dir)
 
         self.data_set = args.dataset
-        self.data_folder = '/home/developer/dataset'
+        self.data_folder = '/home/user/share/dataset'
 
         self.dataset_before_split = os.path.join(self.data_folder, 'data', 'all_data.npy')
         self.dataset_path_trainA = os.path.join(self.data_folder, 'data', 'trainA.npy')
@@ -86,7 +87,7 @@ class INIT(object) :
         print("##### Information #####")
         print("# gan type : ", self.gan_type)
         print("# dataset : ", self.dataset_name)
-        print("# max dataset number : ", self.dataset_num)
+        # print("# max dataset number : ", self.dataset_num)
         print("# batch_size : ", self.batch_size)
         print("# epoch : ", self.epoch)
         print("# iteration per epoch : ", self.iteration)
@@ -106,6 +107,11 @@ class INIT(object) :
         print("##### Discriminator #####")
         print("# Discriminator layer : ", self.n_dis)
         print("# Multi-scale Dis : ", self.n_scale)
+
+        print()
+
+        print("##### Folder #####")
+        print('sample directory : ', self.sample_dir)
 
     ##################################################################################
     # Encoder and Decoders
@@ -293,23 +299,31 @@ class INIT(object) :
         Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
 
         self.dataset_num = self.dataset()
-        os.system("pause")
+        # os.system("pause")
 
-        trainA = np.load(self.dataset_path_trainA)
-        trainB = np.load(self.dataset_path_trainB)
+        trainA = np.load(self.dataset_path_trainA, allow_pickle=True)
+        trainB = np.load(self.dataset_path_trainB, allow_pickle=True)
+        print()
+        print('##### test info ####')
+        print(type(trainA[0]))
+        for key, value in trainA[0]:
+            print(key, value)
 
-        trainA = tf.data.Dataset.from_tensor_slices(trainA[0])
-        trainB = tf.data.Dataset.from_tensor_slices(trainB[0])
+        trainA = tf.data.Dataset.from_tensor_slices(trainA[:2])
+        trainB = tf.data.Dataset.from_tensor_slices(trainB[:2])
 
         trainA = trainA.prefetch(self.batch_size).\
             shuffle(self.dataset_num).\
-            map(Image_Data_Class.image_processing,num_parallel_calls=8).\
+            map(Image_Data_Class.processing,num_parallel_calls=8).\
             apply(batch_and_drop_remainder(self.batch_size)).repeat()
 
         trainB = trainB.prefetch(self.batch_size).\
             shuffle(self.dataset_num).\
-            map(Image_Data_Class.image_processing,num_parallel_calls=8).\
+            map(Image_Data_Class.processing,num_parallel_calls=8).\
             apply(batch_and_drop_remainder(self.batch_size)).repeat()
+
+        # trainA = trainA.map(Image_Data_Class.processing)
+        # trainB = trainB.map(Image_Data_Class.processing)
 
         trainA_iterator = trainA.make_one_shot_iterator()
         trainB_iterator = trainB.make_one_shot_iterator()
@@ -590,8 +604,8 @@ class INIT(object) :
         self.content_image = tf.placeholder(tf.float32, [1, self.img_h, self.img_w, self.img_ch], name='content_image')
         self.style_image = tf.placeholder(tf.float32, [1, self.img_h, self.img_w, self.img_ch], name='guide_style_image')
 
-        self.content_o = tf.placeholder()
-        self.style_o = tf.placeholder()
+        self.content_o = tf.placeholder(tf.float32, [1, self.inst_w, self.inst_w, self.img_ch], name='content_instance')
+        self.style_o = tf.placeholder(tf.float32, [1, self.inst_w, self.inst_w, self.img_ch], name='guide_style_instance')
 
         if self.direction == 'a2b' :
             guide_content_A, guide_style_A = self.Encoder_A(self.content_image, reuse=True)
@@ -838,31 +852,44 @@ class INIT(object) :
 
     def dataset(self):
         print("_"*20)
+        print()
         print("start to process data")
+        print('##### test info #####')
         if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainB) and os.path.exists(self.dataset_path_testA) and os.path.exists(self.dataset_path_testB):
             trainA = np.load(self.dataset_path_trainA)
             trainB = np.load(self.dataset_path_trainB)
         else:
-            if not os.path.exists(self.dataset_before_split):
+            # if not os.path.exists(self.dataset_before_split):
+            if True:
                 folder_name = ['cloudy', 'rainy', 'sunny', 'night']
-                all_images = set()
+                all_images = dict()
                 weather_list = os.listdir(self.data_folder)
                 for weather in weather_list:
                     if weather in folder_name:
                         path = os.path.join(self.data_folder, weather)
                         get_files(path, all_images)
-                np.save(self.dataset_before_split, list(all_images))
+
+                np.save(self.dataset_before_split, all_images)
             else:
                 all_images = np.load(self.dataset_before_split)
+
+            print('dividing data into part A & part B')
+            print('all images : ', type(all_images), len(all_images))
+            data_num = len(all_images) // 2
             trainA = []
             trainB = []
-            print('dividing data into part A & part B')
-            for item in tqdm(all_images):
-                if random.random() > 0.5:
-                    trainA.append(item)
+            count = 0
+            for key, value in all_images.items():
+                if count < data_num:
+                    trainA.append(all_images[key])
                 else:
-                    trainB.append(item)
-
+                    trainB.append(all_images[key])
+                count += 1
+            
+            print('trainA : ', type(trainA[0]))
+            for key, value in trainA[0].items():
+                print(key, value)
+            print('##### data test end ######')
             # split data
             trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
             np.save(self.dataset_path_trainA, trainA)
