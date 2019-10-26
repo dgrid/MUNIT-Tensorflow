@@ -3,6 +3,7 @@ from tensorflow.contrib import slim
 from scipy import misc
 import os, random
 import numpy as np
+import pickle
 
 # https://people.eecs.berkeley.edu/~taesung_park/CycleGAN/datasets/
 # https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/
@@ -165,3 +166,14 @@ def get_files(dir, files):
 
         if os.path.isdir(new_path):
             get_files(new_path, files)
+
+
+def load_pickle(filename, mode='rb'):
+    with open(filename, mode) as f:
+        loaded = pickle.load(f)
+    return loaded
+
+
+def dump_pickle(obj, filename, mode='wb'):
+    with open(filename, mode) as f:
+        pickle.dump(obj, f)

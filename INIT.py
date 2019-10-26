@@ -73,16 +73,8 @@ class INIT(object) :
         check_folder(self.sample_dir)
 
         self.data_set = args.dataset
-        self.data_folder = args.data_folder
-
-        self.dataset_before_split = os.path.join(self.data_folder, 'data', 'all_data.pkl')
-        self.dataset_path_trainA = os.path.join(self.data_folder, 'data', 'trainA.npy')
-        self.dataset_path_trainB = os.path.join(self.data_folder, 'data', 'trainB.npy')
-        self.dataset_path_testA = os.path.join(self.data_folder, 'data', 'testA.npy')
-        self.dataset_path_testB = os.path.join(self.data_folder, 'data', 'testB.npy')
-
-
-        # self.dataset_num = max(len(self.trainA_dataset), len(self.trainB_dataset))
+        self.dataset_builder = DatasetBuilder(args.data_folder)
+        self.dataset_num = self.dataset_builder.dataset_num
 
         print("##### Information #####")
         print("# gan type : ", self.gan_type)
@@ -298,17 +290,15 @@ class INIT(object) :
         """ Input Image"""
         Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
 
-        self.dataset_num = self.dataset()
-        # os.system("pause")
+        trainA, trainB = self.dataset_builder.build_dataset()
 
-        trainA = np.load(self.dataset_path_trainA)
-        trainB = np.load(self.dataset_path_trainB)
         print()
         print('##### test info ####')
-        print(type(trainA[0]))
-        for key, value in trainA[0]:
+        for key, value in trainA[0].items():
             print(key, value)
 
+        # TODO: totally wrong
+        import pdb; pdb.set_trace()
         trainA = tf.data.Dataset.from_tensor_slices(trainA[:2])
         trainB = tf.data.Dataset.from_tensor_slices(trainB[:2])
 
@@ -321,9 +311,6 @@ class INIT(object) :
             shuffle(self.dataset_num).\
             map(Image_Data_Class.processing,num_parallel_calls=8).\
             apply(batch_and_drop_remainder(self.batch_size)).repeat()
-
-        # trainA = trainA.map(Image_Data_Class.processing)
-        # trainB = trainB.map(Image_Data_Class.processing)
 
         trainA_iterator = trainA.make_one_shot_iterator()
         trainB_iterator = trainB.make_one_shot_iterator()
@@ -339,7 +326,6 @@ class INIT(object) :
         self.domain_b = self.domain_B_all['instances']
         self.domain_b_bg = self.domain_B_all['background']
 
-
         """ Define Encoder, Generator, Discriminator """
         print()
         print(" Define Encoder, Generator, Discriminator ")
@@ -348,7 +334,6 @@ class INIT(object) :
 
         self.style_ao = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_ao')
         self.style_bo = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_bo')
-
 
         # encode (global)
         content_a, style_a_prime = self.Encoder_A(self.domain_A)
@@ -849,17 +834,35 @@ class INIT(object) :
         index.close()
 
 
+class DatasetBuilder:
 
-    def dataset(self):
+    def __init__(self, data_folder):
+        self.data_folder = data_folder
+
+        # assume 'data' directory exists
+        self.dataset_before_split = os.path.join(self.data_folder, 'data', 'all_data.pkl')
+        self.dataset_path_trainA = os.path.join(self.data_folder, 'data', 'trainA.pkl')
+        self.dataset_path_trainB = os.path.join(self.data_folder, 'data', 'trainB.pkl')
+        self.dataset_path_testA = os.path.join(self.data_folder, 'data', 'testA.pkl')
+        self.dataset_path_testB = os.path.join(self.data_folder, 'data', 'testB.pkl')
+
+        self._build_dataset()
+
+    def _build_dataset(self):
+        """
+        return dataset, if precomputed pkl is not found, dump it.
+        """
         print("_"*20)
         print()
         print("start to process data")
         print('##### test info #####')
         if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainB) and os.path.exists(self.dataset_path_testA) and os.path.exists(self.dataset_path_testB):
-            trainA = pickle.load(open(self.dataset_path_trainA, 'rb'))
-            trainB = pickle.load(open(self.dataset_path_trainB, 'rb'))
+            trainA = load_pickle(self.dataset_path_trainA)
+            trainB = load_pickle(self.dataset_path_trainB)
         else:
-            if not os.path.exists(self.dataset_before_split):
+            if os.path.exists(self.dataset_before_split):
+                all_images = pickle.load(open(self.dataset_before_split, 'rb'))
+            else:
                 folder_name = ['cloudy', 'rainy', 'sunny', 'night']
                 all_images = dict()
                 weather_list = os.listdir(self.data_folder)
@@ -872,10 +875,6 @@ class INIT(object) :
                         get_files(weather_dir, all_images)
 
                 pickle.dump(all_images, open(self.dataset_before_split, 'wb'))
-                # pickle.dump(all_images, open('/home/user/share/dataset/data/all_data.pkl', 'wb'))
-            else:
-                all_images = pickle.load(open(self.dataset_before_split, 'rb'))
-                # all_images = pickle.load(open('/home/user/share/dataset/data/all_data.pkl', 'rb'))
 
             print('dividing data into part A & part B')
             print('all images : ', type(all_images), len(all_images))
@@ -896,31 +895,25 @@ class INIT(object) :
                     trainA.append(new_data[i])
                 else:
                     trainB.append(new_data[i])
-            # for key, value in all_images.items():
-            #     if count < data_num:
-            #         trainA.append(all_images[key])
-            #     else:
-            #         trainB.append(all_images[key])
-            #     count += 1
 
-            # print('trainA : ', type(trainA[0]))
-            # for key, value in trainA[0].items():
-            #     print(key, value)
             print('##### data test end ######')
-            # import pdb; pdb.set_trace()
             # split data
             trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
-            pickle.dump(trainA, open('/home/user/share/dataset/data/trainA.pkl', 'wb'))
-            pickle.dump(trainB, open('/home/user/share/dataset/data/trainB.pkl', 'wb'))
-            pickle.dump(testA, open('/home/user/share/dataset/data/testA.pkl', 'wb'))
-            pickle.dump(testB, open('/home/user/share/dataset/data/testB.pkl', 'wb'))
-
-            # np.save(self.dataset_path_trainA, trainA)
-            # np.save(self.dataset_path_trainB, trainB)
-            # np.save(self.dataset_path_testA, testA)
-            # np.save(self.dataset_path_testB, testB)
+            dump_pickle(trainA, self.dataset_path_trainA)
+            dump_pickle(trainB, self.dataset_path_trainB)
+            dump_pickle(testA, self.dataset_path_testA)
+            dump_pickle(testB, self.dataset_path_testB)
 
         print("data ready")
         print()
 
-        return max(len(trainA), len(trainB))
+        self._trainA = trainA
+        self._trainB = trainB
+        self._dataset_num = max(len(trainA), len(trainB))
+
+    def build_dataset(self):
+        return self._trainA, self._trainB
+
+    @property
+    def dataset_num(self):
+        return self._dataset_num
