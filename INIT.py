@@ -6,7 +6,7 @@ import random
 from tqdm import tqdm
 from tensorflow.contrib.data import batch_and_drop_remainder
 from sklearn.model_selection import train_test_split
-
+import pickle
 
 class INIT(object) :
     def __init__(self, sess, args):
@@ -73,9 +73,9 @@ class INIT(object) :
         check_folder(self.sample_dir)
 
         self.data_set = args.dataset
-        self.data_folder = '/home/user/share/dataset'
+        self.data_folder = args.data_folder
 
-        self.dataset_before_split = os.path.join(self.data_folder, 'data', 'all_data.npy')
+        self.dataset_before_split = os.path.join(self.data_folder, 'data', 'all_data.pkl')
         self.dataset_path_trainA = os.path.join(self.data_folder, 'data', 'trainA.npy')
         self.dataset_path_trainB = os.path.join(self.data_folder, 'data', 'trainB.npy')
         self.dataset_path_testA = os.path.join(self.data_folder, 'data', 'testA.npy')
@@ -301,8 +301,8 @@ class INIT(object) :
         self.dataset_num = self.dataset()
         # os.system("pause")
 
-        trainA = np.load(self.dataset_path_trainA, allow_pickle=True)
-        trainB = np.load(self.dataset_path_trainB, allow_pickle=True)
+        trainA = np.load(self.dataset_path_trainA)
+        trainB = np.load(self.dataset_path_trainB)
         print()
         print('##### test info ####')
         print(type(trainA[0]))
@@ -856,46 +856,69 @@ class INIT(object) :
         print("start to process data")
         print('##### test info #####')
         if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainB) and os.path.exists(self.dataset_path_testA) and os.path.exists(self.dataset_path_testB):
-            trainA = np.load(self.dataset_path_trainA)
-            trainB = np.load(self.dataset_path_trainB)
+            trainA = pickle.load(open(self.dataset_path_trainA, 'rb'))
+            trainB = pickle.load(open(self.dataset_path_trainB, 'rb'))
         else:
-            # if not os.path.exists(self.dataset_before_split):
-            if True:
+            if not os.path.exists(self.dataset_before_split):
                 folder_name = ['cloudy', 'rainy', 'sunny', 'night']
                 all_images = dict()
                 weather_list = os.listdir(self.data_folder)
                 for weather in weather_list:
-                    if weather in folder_name:
-                        path = os.path.join(self.data_folder, weather)
-                        get_files(path, all_images)
+                    if weather not in folder_name:
+                        continue
 
-                np.save(self.dataset_before_split, all_images)
+                    weather_dir = os.path.join(self.data_folder, weather)
+                    if os.path.isdir(weather_dir):
+                        get_files(weather_dir, all_images)
+
+                pickle.dump(all_images, open(self.dataset_before_split, 'wb'))
+                # pickle.dump(all_images, open('/home/user/share/dataset/data/all_data.pkl', 'wb'))
             else:
-                all_images = np.load(self.dataset_before_split)
+                all_images = pickle.load(open(self.dataset_before_split, 'rb'))
+                # all_images = pickle.load(open('/home/user/share/dataset/data/all_data.pkl', 'rb'))
 
             print('dividing data into part A & part B')
             print('all images : ', type(all_images), len(all_images))
-            data_num = len(all_images) // 2
+            new_data = []
+            for key, value in all_images.items():
+                if len(value['instance']) > 0:
+                    temp = value['instance']
+                    value['instance'] = temp
+                    new_data.append(value)
+            data_num = len(new_data) // 2
+            random.shuffle(new_data)
+            print('new data', len(new_data))
             trainA = []
             trainB = []
             count = 0
-            for key, value in all_images.items():
-                if count < data_num:
-                    trainA.append(all_images[key])
+            for i in range(data_num * 2):
+                if i < data_num:
+                    trainA.append(new_data[i])
                 else:
-                    trainB.append(all_images[key])
-                count += 1
-            
-            print('trainA : ', type(trainA[0]))
-            for key, value in trainA[0].items():
-                print(key, value)
+                    trainB.append(new_data[i])
+            # for key, value in all_images.items():
+            #     if count < data_num:
+            #         trainA.append(all_images[key])
+            #     else:
+            #         trainB.append(all_images[key])
+            #     count += 1
+
+            # print('trainA : ', type(trainA[0]))
+            # for key, value in trainA[0].items():
+            #     print(key, value)
             print('##### data test end ######')
+            # import pdb; pdb.set_trace()
             # split data
             trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
-            np.save(self.dataset_path_trainA, trainA)
-            np.save(self.dataset_path_trainB, trainB)
-            np.save(self.dataset_path_testA, testA)
-            np.save(self.dataset_path_testB, testB)
+            pickle.dump(trainA, open('/home/user/share/dataset/data/trainA.pkl', 'wb'))
+            pickle.dump(trainB, open('/home/user/share/dataset/data/trainB.pkl', 'wb'))
+            pickle.dump(testA, open('/home/user/share/dataset/data/testA.pkl', 'wb'))
+            pickle.dump(testB, open('/home/user/share/dataset/data/testB.pkl', 'wb'))
+
+            # np.save(self.dataset_path_trainA, trainA)
+            # np.save(self.dataset_path_trainB, trainB)
+            # np.save(self.dataset_path_testA, testA)
+            # np.save(self.dataset_path_testB, testB)
 
         print("data ready")
         print()

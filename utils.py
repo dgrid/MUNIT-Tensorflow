@@ -144,6 +144,7 @@ def get_files(dir, files):
     for file in flist:
         new_path = os.path.join(dir, file)
         if os.path.isfile(new_path):
+            # print(new_path)
             num = file.count('_')
             index = file.rstrip('.png').rsplit('_', num - 1)
             image_index = index[0]
@@ -156,8 +157,10 @@ def get_files(dir, files):
             if len(index) == 1:
                 files[image_index]['global'] = new_path
             elif index[-1] == 'beckground':
+                # print(new_path)
                 files[image_index]['background'] = new_path
             else:
+                # print(new_path)
                 files[image_index]['instance'].append(new_path)
 
         if os.path.isdir(new_path):
