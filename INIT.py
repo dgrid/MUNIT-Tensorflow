@@ -247,9 +247,18 @@ class INIT(object) :
         return content_B, style_B
 
     # Instance encoder
-    def Encoder_a(self, x_a, reuse=True):
-        style_a = self.Style_Encoder(x_a, reuse=reuse, scope='style_encoder_A')
-        content_a = self.Content_Encoder(x_a, reuse=reuse, scope='content_encoder_A')
+    def Encoder_a(self, x_a):
+        list_style_a = []
+        list_content_a = []
+
+        # TODO: we cannot determine the number of objects
+        for i_obj in tf.range(x_a.get_shape()[1]):
+            reuse = False if i_obj == 0 else True
+            list_style_a.append(self.Style_Encoder(x_a, reuse=reuse, scope='style_encoder_A'))
+            list_content_a.append(self.Content_Encoder(x_a, reuse=reuse, scope='content_encoder_A'))
+
+        content_a = tf.stack(list_content_a).transpose([1, 0, 2, 3, 4])
+        style_a = tf.stack(list_style_a).transpose([1, 0, 2, 3, 4])
 
         return content_a, style_a
 
@@ -359,10 +368,9 @@ class INIT(object) :
         content_b, style_b_prime = self.Encoder_B(self.domain_B)
 
         # encode (background)
-        c_a_bg, s_a_bg_prime = self.Encoder_A(self.domain_a_bg)
-        c_b_bg, s_b_bg_prime = self.Encoder_A(self.domain_b_bg)
+        c_a_bg, s_a_bg_prime = self.Encoder_A(self.domain_a_bg, reuse=True)
+        c_b_bg, s_b_bg_prime = self.Encoder_A(self.domain_b_bg, reuse=True)
 
-        import pdb; pdb.set_trace()
         # instance encode
         c_a, s_a_prime = self.Encoder_a(self.domain_a)
         c_b, s_b_prime = self.Encoder_b(self.domain_b)
