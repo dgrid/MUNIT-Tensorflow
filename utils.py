@@ -10,11 +10,23 @@ import pickle
 
 class ImageData:
 
-    def __init__(self, img_h, img_w, channels, augment_flag=False):
+    def __init__(self, img_h, img_w, channels, augment_flag=False, obj_h=120, obj_w=120):
         self.img_h = img_h
         self.img_w = img_w
         self.channels = channels
         self.augment_flag = augment_flag
+
+        # objects
+        self.obj_h = obj_h
+        self.obj_w = obj_w
+
+    def get_image_shape(self):
+        # channels-first
+        return [self.channels, self.img_h, self.img_w]
+
+    def get_object_shape(self):
+        # channels-first
+        return [self.channels, self.obj_h, self.obj_w]
 
     def image_processing(self, filename):
         x = tf.read_file(filename)
@@ -31,11 +43,11 @@ class ImageData:
 
         return img
 
-    def object_resize(self, filename, height=120, width=120):
+    def object_resize(self, filename):
     # object will be resized to 120*120 pixels
         x = tf.read_file(filename)
         x_decode = tf.image.decode_png(x, channels=self.channels)
-        img = tf.image.resize_images(x_decode, [height, width])
+        img = tf.image.resize_images(x_decode, [self.obj_h, self.obj_w])
         img = tf.cast(img, tf.float32) / 127.5 - 1
         return img
 
@@ -145,7 +157,6 @@ def get_files(dir, files):
     for file in flist:
         new_path = os.path.join(dir, file)
         if os.path.isfile(new_path):
-            # print(new_path)
             num = file.count('_')
             index = file.rstrip('.png').rsplit('_', num - 1)
             image_index = index[0]
@@ -157,11 +168,9 @@ def get_files(dir, files):
 
             if len(index) == 1:
                 files[image_index]['global'] = new_path
-            elif index[-1] == 'beckground':
-                # print(new_path)
+            elif index[-1] == 'background':
                 files[image_index]['background'] = new_path
             else:
-                # print(new_path)
                 files[image_index]['instance'].append(new_path)
 
         if os.path.isdir(new_path):

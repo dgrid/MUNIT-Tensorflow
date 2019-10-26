@@ -1,14 +1,21 @@
+from functools import partial
+from glob import glob
+import pickle
+import random
+import time
+
+from tqdm import tqdm
+import tensorflow as tf
+from tensorflow.contrib.data import batch_and_drop_remainder, Dataset
+from sklearn.model_selection import train_test_split
+
 from ops import *
 from utils import *
-from glob import glob
-import time
-import random
-from tqdm import tqdm
-from tensorflow.contrib.data import batch_and_drop_remainder
-from sklearn.model_selection import train_test_split
-import pickle
+from dataset import DatasetBuilder
+
 
 class INIT(object) :
+
     def __init__(self, sess, args):
         self.model_name = 'INIT'
         self.sess = sess
@@ -288,7 +295,6 @@ class INIT(object) :
         self.lr = tf.placeholder(tf.float32, name='learning_rate')
 
         """ Input Image"""
-        Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
 
         trainA, trainB = self.dataset_builder.build_dataset()
 
@@ -298,19 +304,32 @@ class INIT(object) :
             print(key, value)
 
         # TODO: totally wrong
-        import pdb; pdb.set_trace()
-        trainA = tf.data.Dataset.from_tensor_slices(trainA[:2])
-        trainB = tf.data.Dataset.from_tensor_slices(trainB[:2])
+        Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
+        self.dataset_builder.generator(trainA, Image_Data_Class)
+        trainA_generator = partial(self.dataset_builder.generator, trainA, Image_Data_Class)
+        trainB_generator = partial(self.dataset_builder.generator, trainB, Image_Data_Class)
 
-        trainA = trainA.prefetch(self.batch_size).\
-            shuffle(self.dataset_num).\
-            map(Image_Data_Class.processing,num_parallel_calls=8).\
-            apply(batch_and_drop_remainder(self.batch_size)).repeat()
+        output_types = {
+            'global': tf.float32,
+            'background': tf.float32,
+            'instances': tf.float32
+        }
+        output_shapes = {
+            'global': tf.TensorShape(Image_Data_Class.get_image_shape()),
+            'background': tf.TensorShape(Image_Data_Class.get_image_shape()),
+            'instances': tf.TensorShape([None, ] + Image_Data_Class.get_object_shape()),
+        }
+        trainA = Dataset.from_generator(trainA_generator, output_types, output_shapes)
+        trainB = Dataset.from_generator(trainB_generator, output_types, output_shapes)
 
-        trainB = trainB.prefetch(self.batch_size).\
-            shuffle(self.dataset_num).\
-            map(Image_Data_Class.processing,num_parallel_calls=8).\
-            apply(batch_and_drop_remainder(self.batch_size)).repeat()
+        trainA = trainA.prefetch(self.batch_size) \
+                    .shuffle(self.dataset_num) \
+                    .apply(batch_and_drop_remainder(self.batch_size)) \
+                    .repeat()
+        trainB = trainB.prefetch(self.batch_size) \
+                    .shuffle(self.dataset_num) \
+                    .apply(batch_and_drop_remainder(self.batch_size)) \
+                    .repeat()
 
         trainA_iterator = trainA.make_one_shot_iterator()
         trainB_iterator = trainB.make_one_shot_iterator()
@@ -343,6 +362,7 @@ class INIT(object) :
         c_a_bg, s_a_bg_prime = self.Encoder_A(self.domain_a_bg)
         c_b_bg, s_b_bg_prime = self.Encoder_A(self.domain_b_bg)
 
+        import pdb; pdb.set_trace()
         # instance encode
         c_a, s_a_prime = self.Encoder_a(self.domain_a)
         c_b, s_b_prime = self.Encoder_b(self.domain_b)
@@ -832,88 +852,3 @@ class INIT(object) :
                         '../../..' + os.path.sep + image_path), self.img_w, self.img_h))
                 index.write("</tr>")
         index.close()
-
-
-class DatasetBuilder:
-
-    def __init__(self, data_folder):
-        self.data_folder = data_folder
-
-        # assume 'data' directory exists
-        self.dataset_before_split = os.path.join(self.data_folder, 'data', 'all_data.pkl')
-        self.dataset_path_trainA = os.path.join(self.data_folder, 'data', 'trainA.pkl')
-        self.dataset_path_trainB = os.path.join(self.data_folder, 'data', 'trainB.pkl')
-        self.dataset_path_testA = os.path.join(self.data_folder, 'data', 'testA.pkl')
-        self.dataset_path_testB = os.path.join(self.data_folder, 'data', 'testB.pkl')
-
-        self._build_dataset()
-
-    def _build_dataset(self):
-        """
-        return dataset, if precomputed pkl is not found, dump it.
-        """
-        print("_"*20)
-        print()
-        print("start to process data")
-        print('##### test info #####')
-        if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainB) and os.path.exists(self.dataset_path_testA) and os.path.exists(self.dataset_path_testB):
-            trainA = load_pickle(self.dataset_path_trainA)
-            trainB = load_pickle(self.dataset_path_trainB)
-        else:
-            if os.path.exists(self.dataset_before_split):
-                all_images = pickle.load(open(self.dataset_before_split, 'rb'))
-            else:
-                folder_name = ['cloudy', 'rainy', 'sunny', 'night']
-                all_images = dict()
-                weather_list = os.listdir(self.data_folder)
-                for weather in weather_list:
-                    if weather not in folder_name:
-                        continue
-
-                    weather_dir = os.path.join(self.data_folder, weather)
-                    if os.path.isdir(weather_dir):
-                        get_files(weather_dir, all_images)
-
-                pickle.dump(all_images, open(self.dataset_before_split, 'wb'))
-
-            print('dividing data into part A & part B')
-            print('all images : ', type(all_images), len(all_images))
-            new_data = []
-            for key, value in all_images.items():
-                if len(value['instance']) > 0:
-                    temp = value['instance']
-                    value['instance'] = temp
-                    new_data.append(value)
-            data_num = len(new_data) // 2
-            random.shuffle(new_data)
-            print('new data', len(new_data))
-            trainA = []
-            trainB = []
-            count = 0
-            for i in range(data_num * 2):
-                if i < data_num:
-                    trainA.append(new_data[i])
-                else:
-                    trainB.append(new_data[i])
-
-            print('##### data test end ######')
-            # split data
-            trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
-            dump_pickle(trainA, self.dataset_path_trainA)
-            dump_pickle(trainB, self.dataset_path_trainB)
-            dump_pickle(testA, self.dataset_path_testA)
-            dump_pickle(testB, self.dataset_path_testB)
-
-        print("data ready")
-        print()
-
-        self._trainA = trainA
-        self._trainB = trainB
-        self._dataset_num = max(len(trainA), len(trainB))
-
-    def build_dataset(self):
-        return self._trainA, self._trainB
-
-    @property
-    def dataset_num(self):
-        return self._dataset_num
