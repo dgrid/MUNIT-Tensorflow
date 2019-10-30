@@ -3,6 +3,7 @@ from tensorflow.contrib import slim
 from scipy import misc
 import os, random
 import numpy as np
+from PIL import Image
 
 # https://people.eecs.berkeley.edu/~taesung_park/CycleGAN/datasets/
 # https://people.eecs.berkeley.edu/~tinghuiz/projects/pix2pix/datasets/
@@ -29,14 +30,24 @@ class ImageData:
                 img = augmentation(img, augment_size_h, augment_size_w)
 
         return img
+    
+    def check_size(self, filename):
+        image = Image.open(filename)
+        if image.height >= 60 and image.width >= 60:
+            return True
+        else:
+            return False
 
     def object_resize(self, filename, height=120, width=120):
     # object will be resized to 120*120 pixels
-        x = tf.read_file(filename)
-        x_decode = tf.image.decode_png(x, channels=self.channels)
-        img = tf.image.resize_images(x_decode, [height, width])
-        img = tf.cast(img, tf.float32) / 127.5 - 1
-        return img
+        ifuse = check_size(filename)
+        if ifuse:
+            x = tf.read_file(filename)
+            x_decode = tf.image.decode_png(x, channels=self.channels)
+
+            img = tf.image.resize_images(x_decode, [height, width])
+            img = tf.cast(img, tf.float32) / 127.5 - 1
+            return img
 
     def image_resize(self, filename, resize=True, height=360, width=572):
         # the short side of image will be resized to 360 pixels
