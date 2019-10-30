@@ -332,11 +332,13 @@ class INIT(object) :
         self.domain_B_all = trainB_iterator.get_next()
 
         self.domain_A = self.domain_A_all['global']
-        self.domain_a = self.domain_A_all['instances']
+        # randomly select one instance for each interation
+        self.domain_a = random.sample(self.domain_A_all['instances'], 1)
         self.domain_a_bg = self.domain_A_all['background']
 
         self.domain_B = self.domain_B_all['global']
-        self.domain_b = self.domain_B_all['instances']
+        # randomly select one instance for each interation
+        self.domain_b = random.sample*(self.domain_B_all['instances'], 1)
         self.domain_b_bg = self.domain_B_all['background']
 
 
