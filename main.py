@@ -160,6 +160,11 @@ def main():
       exit()
       print()
 
+    # allocate dynamically
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0' #use GPU with ID=0
+    config = tf.ConfigProto()
+    config.gpu_options.per_process_gpu_memory_fraction = 0.5 # maximun alloc gpu50% of MEM
+    config.gpu_options.allow_growth = True
 
     # open session
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:

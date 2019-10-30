@@ -401,6 +401,10 @@ class INIT(object) :
         c_a_obg, s_a_bg = self.Encoder_a(x_Aa_bg, reuse=True)
         c_b_obg, s_b_bg = self.Encoder_b(x_Bb_bg, reuse=True)
 
+        # cross granularity (global & background)
+        c_a_gbg, s_a_g2 = self.Encoder_a(x_Aa_bg, reuse=True)
+        c_b_gbg, s_b_g2 = self.Encoder_b(x_Bb_bg, reuse=True)
+
 
         # decode again (if needed)
         if self.recon_x_cyc_w > 0 :
@@ -490,13 +494,16 @@ class INIT(object) :
         # The style reconstruction loss encourages
         # diverse outputs given different style codes
         # global
-        recon_style_A = L1_loss(style_a_, self.style_a) + L1_loss(s_a_g, self.style_a)
-        recon_style_B = L1_loss(style_b_, self.style_b) + L1_loss(s_b_g, self.style_b)
+        recon_style_A = L1_loss(style_a_, self.style_a) + L1_loss(s_a_g, self.style_a) + L1_loss(s_a_g2, self.style_a)
+        recon_style_B = L1_loss(style_b_, self.style_b) + L1_loss(s_b_g, self.style_b) + L1_loss(s_b_g2, self.style_b)
 
         # instance
         recon_s_a = L1_loss(s_a_, self.style_ao)
         recon_s_b = L1_loss(s_b_, self.style_bo)
 
+        # background
+        # recon_s_a_bg = L1_loss() + L1_loss()
+        # recon_s_b_bg = L1_loss() + L1_loss()
 
         # The content reconstruction loss encourages
         # the translated image to preserve semantic content of the input image
@@ -507,6 +514,10 @@ class INIT(object) :
         # recon from cross domain
         recon_c_a = L1_loss(c_a_, c_a) + L1_loss(c_a_o, c_a) + L1_loss(c_a_obg, c_a)
         recon_c_b = L1_loss(c_b_, c_b) + L1_loss(c_b_o, c_b) + L1_loss(c_b_obg, c_b)
+
+        # background 
+        # recon_c_a_bg = L1_loss(c_a_gbg, c_a_bg) + L1_loss()
+        # recon_c_b_bg = L1_loss() + L1_loss()
 
 
         Generator_A_loss = self.gan_w * G_ad_loss_a + \

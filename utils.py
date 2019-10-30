@@ -49,7 +49,7 @@ class ImageData:
             img = tf.cast(img, tf.float32) / 127.5 - 1
             return img
 
-    def image_resize(self, filename, resize=True, height=360, width=572):
+    def image_resize(self, filename, resize=True, height=360, width=360):
         # the short side of image will be resized to 360 pixels
         # due to the limitation of GPU memory
         x = tf.read_file(filename)
