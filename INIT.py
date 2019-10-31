@@ -304,13 +304,14 @@ class INIT(object) :
         self.lr = tf.placeholder(tf.float32, name='learning_rate')
 
         """ Input Image"""
+        """
 
         trainA, trainB = self.dataset_builder.build_dataset()
 
-        print()
-        print('##### test info ####')
-        for key, value in trainA[0].items():
-            print(key, value)
+        # print()
+        # print('##### test info ####')
+        # for key, value in trainA[0].items():
+        #     print(key, value)
 
         # TODO: totally wrong
         Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
@@ -348,13 +349,29 @@ class INIT(object) :
 
         self.domain_A = self.domain_A_all['global']
         # randomly select one instance for each interation
-        self.domain_a = random.sample(self.domain_A_all['instances'], 1)
+        self.domain_a = self.domain_A_all['instances']
+        print("#"*20, "test data format", "#"*20,)
+        print("domain a", type(self.domain_a))
+        print()
+        # self.domain_a = random.sample(self.domain_A_all['instances'], 1)
         self.domain_a_bg = self.domain_A_all['background']
 
         self.domain_B = self.domain_B_all['global']
         # randomly select one instance for each interation
-        self.domain_b = random.sample*(self.domain_B_all['instances'], 1)
+        self.domain_b = self.domain_B_all['instances']
+        # self.domain_b = random.sample*(self.domain_B_all['instances'], 1)
         self.domain_b_bg = self.domain_B_all['background']
+
+        """
+        # temporary data for testing
+        self.domain_A = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, self.style_dim])
+        self.domain_B = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, self.style_dim])
+
+        self.domain_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, self.style_dim])
+        self.domain_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, self.style_dim])
+
+        self.domain_a_bg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, self.style_dim])
+        self.domain_b_bg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, self.style_dim])
 
         """ Define Encoder, Generator, Discriminator """
         print()

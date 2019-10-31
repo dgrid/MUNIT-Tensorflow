@@ -45,6 +45,7 @@ class ImageData:
         return img
     
     def check_size(self, filename):
+        # if the instance is larger than 60 * 60 pixels
         image = Image.open(filename)
         if image.height >= 60 and image.width >= 60:
             return True

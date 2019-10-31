@@ -52,8 +52,8 @@ class DatasetBuilder:
             new_data = []
             for key, value in all_images.items():
                 if len(value['instance']) > 0:
-                    temp = value['instance']
-                    value['instance'] = temp
+                    # temp = value['instance']
+                    # value['instance'] = temp
                     new_data.append(value)
             data_num = len(new_data) // 2
             random.shuffle(new_data)
