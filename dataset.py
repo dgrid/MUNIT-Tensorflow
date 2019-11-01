@@ -2,13 +2,14 @@ import os
 import random
 
 import tensorflow as tf
-
+from sklearn.model_selection import train_test_split
 from utils import load_pickle, dump_pickle, get_files, ImageData
 
 class DatasetBuilder:
 
     def __init__(self, data_folder):
-        self.data_folder = data_folder
+        # self.data_folder = data_folder
+        self.data_folder = '/home/user/share/data'
 
         # assume 'data' directory exists
         self.dataset_before_split = os.path.join(self.data_folder, 'data', 'all_data.pkl')
@@ -50,6 +51,7 @@ class DatasetBuilder:
             print('dividing data into part A & part B')
             print('all images : ', type(all_images), len(all_images))
             new_data = []
+            """
             for key, value in all_images.items():
                 if len(value['instance']) > 0:
                     # temp = value['instance']
@@ -69,11 +71,11 @@ class DatasetBuilder:
 
             print('##### data test end ######')
             # split data
-            trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
-            dump_pickle(trainA, self.dataset_path_trainA)
-            dump_pickle(trainB, self.dataset_path_trainB)
-            dump_pickle(testA, self.dataset_path_testA)
-            dump_pickle(testB, self.dataset_path_testB)
+            # trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
+            # dump_pickle(trainA, self.dataset_path_trainA)
+            # dump_pickle(trainB, self.dataset_path_trainB)
+            # dump_pickle(testA, self.dataset_path_testA)
+            # dump_pickle(testB, self.dataset_path_testB)
 
         print("data ready")
         print()
@@ -81,6 +83,8 @@ class DatasetBuilder:
         self._trainA = trainA
         self._trainB = trainB
         self._dataset_num = max(len(trainA), len(trainB))
+        """
+        self._dataset_num = 0
 
     def build_dataset(self):
         return self._trainA, self._trainB

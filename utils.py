@@ -61,8 +61,6 @@ class ImageData:
 
             img = tf.image.resize_images(x_decode, [height, width])
             img = tf.cast(img, tf.float32) / 127.5 - 1
-        else:
-            continue
         return img
 
 

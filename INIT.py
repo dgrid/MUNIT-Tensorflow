@@ -41,7 +41,7 @@ class INIT(object) :
         self.img_h = args.img_h
         self.img_w = args.img_w
         self.img_ch = args.img_ch
-        self.inst_w_w = args.inst_w
+        self.inst_w = args.inst_w
 
         self.init_lr = args.lr
         self.ch = args.ch
@@ -234,47 +234,41 @@ class INIT(object) :
     # Model
     ##################################################################################
 
-    def Encoder_A(self, x_A, reuse=False):
+    def Encoder_A(self, x_A, reuse=tf.AUTO_REUSE):
         style_A = self.Style_Encoder(x_A, reuse=reuse, scope='style_encoder_A')
         content_A = self.Content_Encoder(x_A, reuse=reuse, scope='content_encoder_A')
 
         return content_A, style_A
 
-    def Encoder_B(self, x_B, reuse=False):
+    def Encoder_B(self, x_B, reuse=tf.AUTO_REUSE):
         style_B = self.Style_Encoder(x_B, reuse=reuse, scope='style_encoder_B')
         content_B = self.Content_Encoder(x_B, reuse=reuse, scope='content_encoder_B')
 
         return content_B, style_B
 
     # Instance encoder
-    def Encoder_a(self, x_a):
-        list_style_a = []
-        list_content_a = []
-
-        # TODO: we cannot determine the number of objects
-        for i_obj in tf.range(x_a.get_shape()[1]):
-            reuse = False if i_obj == 0 else True
-            list_style_a.append(self.Style_Encoder(x_a, reuse=reuse, scope='style_encoder_A'))
-            list_content_a.append(self.Content_Encoder(x_a, reuse=reuse, scope='content_encoder_A'))
-
-        content_a = tf.stack(list_content_a).transpose([1, 0, 2, 3, 4])
-        style_a = tf.stack(list_style_a).transpose([1, 0, 2, 3, 4])
+    def Encoder_a(self, x_a, reuse=tf.AUTO_REUSE):
+        # one instance in each iteratio
+        with tf.variable_scope('style_encoder_A'):
+            style_a = self.Style_Encoder(x_a, reuse=reuse, scope='style_encoder_A')
+        with tf.variable_scope('content_encoder_A'):
+            content_a = self.Content_Encoder(x_a, reuse=reuse, scope='content_encoder_A')
 
         return content_a, style_a
 
-    def Encoder_b(self, x_b, reuse=True):
+    def Encoder_b(self, x_b, reuse=tf.AUTO_REUSE):
         style_b = self.Style_Encoder(x_b, reuse=reuse, scope='style_encoder_B')
         content_b = self.Content_Encoder(x_b, reuse=reuse, scope='content_encoder_B')
 
         return content_b, style_b
 
     # global decoder
-    def Decoder_A(self, content_B, style_A, reuse=False):
+    def Decoder_A(self, content_B, style_A, reuse=tf.AUTO_REUSE):
         x_ba = self.generator(contents=content_B, style=style_A, reuse=reuse, scope='decoder_A')
 
         return x_ba
 
-    def Decoder_B(self, content_A, style_B, reuse=False):
+    def Decoder_B(self, content_A, style_B, reuse=tf.AUTO_REUSE):
         x_ab = self.generator(contents=content_A, style=style_B, reuse=reuse, scope='decoder_B')
 
         return x_ab
@@ -288,13 +282,13 @@ class INIT(object) :
         x_ba = self.generator(contents=content_a, style=style_b, reuse=reuse, scope='decoder_b')
         return x_ba
 
-    def discriminate_real(self, x_A, x_B):
-        real_A_logit = self.discriminator(x_A, scope="discriminator_A")
-        real_B_logit = self.discriminator(x_B, scope="discriminator_B")
+    def discriminate_real(self, x_A, x_B, reuse=tf.AUTO_REUSE):
+        real_A_logit = self.discriminator(x_A, reuse=reuse, scope="discriminator_A")
+        real_B_logit = self.discriminator(x_B, reuse=reuse, scope="discriminator_B")
 
         return real_A_logit, real_B_logit
 
-    def discriminate_fake(self, x_ba, x_ab):
+    def discriminate_fake(self, x_ba, x_ab, reuse=tf.AUTO_REUSE):
         fake_A_logit = self.discriminator(x_ba, reuse=True, scope="discriminator_A")
         fake_B_logit = self.discriminator(x_ab, reuse=True, scope="discriminator_B")
 
@@ -364,14 +358,21 @@ class INIT(object) :
 
         """
         # temporary data for testing
-        self.domain_A = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, self.style_dim])
-        self.domain_B = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, self.style_dim])
+        d_A = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
+        d_B = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
 
-        self.domain_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, self.style_dim])
-        self.domain_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, self.style_dim])
+        d_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, 3])
+        d_b = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, 3])
+        
+        d_abg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
+        d_bbg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
 
-        self.domain_a_bg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, self.style_dim])
-        self.domain_b_bg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, self.style_dim])
+        self.domain_A = tf.cast(d_A, tf.float32)
+        self.domain_B = tf.cast(d_B, tf.float32)
+        self.domain_a = tf.cast(d_a, tf.float32)
+        self.domain_b = tf.cast(d_b, tf.float32)
+        self.domain_a_bg = tf.cast(d_abg, tf.float32)
+        self.domain_b_bg = tf.cast(d_bbg, tf.float32)
 
         """ Define Encoder, Generator, Discriminator """
         print()
@@ -383,57 +384,61 @@ class INIT(object) :
         self.style_bo = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_bo')
 
         # encode (global)
+        print('#'*20)
         content_a, style_a_prime = self.Encoder_A(self.domain_A)
         content_b, style_b_prime = self.Encoder_B(self.domain_B)
 
         # encode (background)
+        print('global shape ', self.domain_A.shape.as_list())
         c_a_bg, s_a_bg_prime = self.Encoder_A(self.domain_a_bg, reuse=True)
-        c_b_bg, s_b_bg_prime = self.Encoder_A(self.domain_b_bg, reuse=True)
+        c_b_bg, s_b_bg_prime = self.Encoder_B(self.domain_b_bg, reuse=True)
 
         # instance encode
-        c_a, s_a_prime = self.Encoder_a(self.domain_a)
-        c_b, s_b_prime = self.Encoder_b(self.domain_b)
+        print('instance shape ', self.domain_a.shape.as_list())
+        c_a, s_a_prime = self.Encoder_A(self.domain_a) # 
+        c_b, s_b_prime = self.Encoder_B(self.domain_b) #
 
         # decode (within domain)
         # global
         x_aa = self.Decoder_A(content_B=content_a, style_A=style_a_prime)
         x_bb = self.Decoder_B(content_A=content_b, style_B=style_b_prime)
         # instance
-        x_aa_o = self.Decoder_a(content_b=c_a, style_a=s_a_prime)
-        x_bb_o = self.Decoder_b(content_a=c_b, style_b=s_b_prime)
+        x_aa_o = self.Decoder_A(content_B=c_a, style_A=s_a_prime) #
+        x_bb_o = self.Decoder_B(content_A=c_b, style_B=s_b_prime) #
 
         # decode (cross domain)
         # among images
         x_ba = self.Decoder_A(content_B=content_b, style_A=self.style_a, reuse=True)
         x_ab = self.Decoder_B(content_A=content_a, style_B=self.style_b, reuse=True)
         # among instances
-        x_ba_o = self.Decoder_a(content_b=c_b, style_a=self.style_ao, reuse=True)
-        x_ab_o = self.Decoder_b(content_a=c_a, style_b=self.style_bo, reuse=True)
+        x_ba_o = self.Decoder_A(content_B=c_b, style_A=self.style_ao, reuse=True) #
+        x_ab_o = self.Decoder_B(content_A=c_a, style_B=self.style_bo, reuse=True) #
 
         # decode (cross granularity)
-        x_Aa = self.Decoder_a(content_b=c_a, style_a=style_a_prime, reuse=True)
-        x_Bb = self.Decoder_b(content_a=c_b, style_b=style_b_prime, reuse=True)
-        x_Aa_bg = self.Decoder_a(content_b=c_a, style_a=s_a_bg_prime, reuse=True)
-        x_Bb_bg = self.Decoder_b(content_a=c_b, style_b=s_b_bg_prime, reuse=True)
+        x_Aa = self.Decoder_A(content_B=c_a, style_A=style_a_prime, reuse=True) #
+        x_Bb = self.Decoder_B(content_A=c_b, style_B=style_b_prime, reuse=True) #
+        x_Aa_bg = self.Decoder_A(content_B=c_a, style_A=s_a_bg_prime, reuse=True) #
+        x_Bb_bg = self.Decoder_B(content_A=c_b, style_B=s_b_bg_prime, reuse=True) #
 
 
         # encode again
         # cross domain (global)
-        content_b_, style_a_ = self.Encoder_A(x_ba, reuse=True)
-        content_a_, style_b_ = self.Encoder_B(x_ab, reuse=True)
+        print(x_ba.shape.as_list())
+        content_b_, style_a_ = self.Encoder_A(x_ba, reuse=tf.AUTO_REUSE)
+        content_a_, style_b_ = self.Encoder_B(x_ab, reuse=tf.AUTO_REUSE)
         # cross domain (instance)
-        c_a_, s_a_ = self.Encoder_a(x_ab_o, reuse=True)
-        c_b_, s_b_ = self.Encoder_a(x_ba_o, reuse=True)
+        c_a_, s_a_ = self.Encoder_A(x_ab_o, reuse=True) #
+        c_b_, s_b_ = self.Encoder_B(x_ba_o, reuse=True) #
         # cross granularity (instance & global)
-        c_a_o, s_a_g = self.Encoder_a(x_Aa, reuse=True)
-        c_b_o, s_b_g = self.Encoder_b(x_Bb, reuse=True)
+        c_a_o, s_a_g = self.Encoder_A(x_Aa, reuse=True) #
+        c_b_o, s_b_g = self.Encoder_B(x_Bb, reuse=True) #
         # cross granularity (instance & background)
-        c_a_obg, s_a_bg = self.Encoder_a(x_Aa_bg, reuse=True)
-        c_b_obg, s_b_bg = self.Encoder_b(x_Bb_bg, reuse=True)
+        c_a_obg, s_a_bg = self.Encoder_A(x_Aa_bg, reuse=True) #
+        c_b_obg, s_b_bg = self.Encoder_B(x_Bb_bg, reuse=True) #
 
         # cross granularity (global & background)
-        c_a_gbg, s_a_g2 = self.Encoder_a(x_Aa_bg, reuse=True)
-        c_b_gbg, s_b_g2 = self.Encoder_b(x_Bb_bg, reuse=True)
+        c_a_gbg, s_a_g2 = self.Encoder_A(x_Aa_bg, reuse=True) #
+        c_b_gbg, s_b_g2 = self.Encoder_B(x_Bb_bg, reuse=True) #
 
 
         # decode again (if needed)
@@ -441,14 +446,14 @@ class INIT(object) :
             x_aba = self.Decoder_A(content_B=content_a_, style_A=style_a_prime, reuse=True)
             x_bab = self.Decoder_B(content_A=content_b_, style_B=style_b_prime, reuse=True)
 
-            x_aba_o = self.Decoder_a(content_b=c_a_, style_a=s_a_prime)
-            x_bab_o = self.Decoder_b(content_a=c_b_, style_b=s_b_prime)
+            x_aba_o = self.Decoder_A(content_B=c_a_, style_A=s_a_prime) #
+            x_bab_o = self.Decoder_B(content_A=c_b_, style_B=s_b_prime) #
 
-            x_aba_og = self.Decoder_a(content_b=c_a_o, style_a=s_a_prime)
-            x_bab_og = self.Decoder_b(content_a=c_b_o, style_b=s_b_prime)
+            x_aba_og = self.Decoder_A(content_B=c_a_o, style_A=s_a_prime) #
+            x_bab_og = self.Decoder_B(content_A=c_b_o, style_B=s_b_prime) #
 
-            x_aba_ob = self.Decoder_a(content_b=c_a_o, style_a=s_a_bg_prime)
-            x_bab_ob = self.Decoder_b(content_a=c_b_o, style_b=s_b_bg_prime)
+            x_aba_ob = self.Decoder_A(content_B=c_a_o, style_A=s_a_bg_prime) #
+            x_bab_ob = self.Decoder_B(content_A=c_b_o, style_B=s_b_bg_prime) #
 
             cyc_recon_A = L1_loss(x_aba, self.domain_A)
             cyc_recon_B = L1_loss(x_bab, self.domain_B)
@@ -472,16 +477,16 @@ class INIT(object) :
             cyc_recon_ab = 0.0
             cyc_recon_bb = 0.0
 
-        real_A_logit, real_B_logit = self.discriminate_real(self.domain_A, self.domain_B)
-        fake_A_logit, fake_B_logit = self.discriminate_fake(x_ba, x_ab)
+        real_A_logit, real_B_logit = self.discriminate_real(self.domain_A, self.domain_B, reuse=tf.AUTO_REUSE)
+        fake_A_logit, fake_B_logit = self.discriminate_fake(x_ba, x_ab, reuse=True)
         # instance (cross domain)
-        real_a_logit, real_b_logit = self.discriminate_real(self.domain_a, self.domain_b)
-        fake_a_logit, fake_b_logit = self.discriminate_fake(x_ba_o, x_ab_o)
+        real_a_logit, real_b_logit = self.discriminate_real(self.domain_a, self.domain_b, reuse=True)
+        fake_a_logit, fake_b_logit = self.discriminate_fake(x_ba_o, x_ab_o, reuse=True)
         # instance (cross granularity: global)
         # real_ag_logit, real_bg_logit = self.discriminate_real(self)
-        fake_ag_logit, fake_bg_logit = self.discriminate_fake(x_Aa, x_Bb)
+        fake_ag_logit, fake_bg_logit = self.discriminate_fake(x_Aa, x_Bb, reuse=True)
         # instance (cross granularity: background)
-        fake_abg_logit, fake_bbg_logit = self.discriminate_fake(x_Aa_bg, x_Bb_bg)
+        fake_abg_logit, fake_bbg_logit = self.discriminate_fake(x_Aa_bg, x_Bb_bg, reuse=True)
 
         """ Define Loss """
         print(" Define Loss ")
@@ -609,7 +614,7 @@ class INIT(object) :
         self.D_A_loss = tf.summary.scalar("D_A_loss", Discriminator_A_loss)
         self.D_B_loss = tf.summary.scalar("D_B_loss", Discriminator_B_loss)
 
-        self.G_loss = tf.summary.merge([self.G_A_loss, self.G_a_loss, self.G_B_loss, self.G_B_loss, self.all_G_loss])
+        self.G_loss = tf.summary.merge([self.G_A_loss, self.G_a_loss, self.G_B_loss, self.G_b_loss, self.all_G_loss])
         self.D_loss = tf.summary.merge([self.D_A_loss, self.D_B_loss, self.all_D_loss])
 
         """ Image """
@@ -627,7 +632,7 @@ class INIT(object) :
         self.test_image = tf.placeholder(tf.float32, [1, self.img_h, self.img_w, self.img_ch], name='test_image')
         self.test_style = tf.placeholder(tf.float32, [1, 1, 1, self.style_dim], name='test_style')
         # 120*120
-        self.test_instance = tf.placeholder(tf.float32, [1, self.istn_w, self.istn_w, self.img_ch], name='test_instance')
+        self.test_instance = tf.placeholder(tf.float32, [1, self.inst_w, self.inst_w, self.img_ch], name='test_instance')
         self.test_local_style = tf.placeholder(tf.float32, [1, 1, 1, self.style_dim], name='test_instance_style')
 
         test_content_a, _ = self.Encoder_A(self.test_image, reuse=True)
@@ -636,11 +641,11 @@ class INIT(object) :
         self.test_fake_A = self.Decoder_A(content_B=test_content_b, style_A=self.test_style, reuse=True)
         self.test_fake_B = self.Decoder_B(content_A=test_content_a, style_B=self.test_style, reuse=True)
 
-        test_constent_oa, _ = self.Encoder_a(self.test_instance, reuse=True)
-        test_constent_ob, _ = self.Encoder_b(self.test_instance, reuse=True)
+        test_constent_oa, _ = self.Encoder_A(self.test_instance, reuse=True)
+        test_constent_ob, _ = self.Encoder_B(self.test_instance, reuse=True)
 
-        self.test_fake_oa = self.Decoder_a(content_b=test_constent_oa, style_a=self.test_local_style, reuse=True)
-        self.test_fake_ob = self.Decoder_b(content_a=test_constent_ob, style_b=self.test_local_style, reuse=True)
+        self.test_fake_oa = self.Decoder_A(content_B=test_constent_oa, style_A=self.test_local_style, reuse=True)
+        self.test_fake_ob = self.Decoder_B(content_A=test_constent_ob, style_B=self.test_local_style, reuse=True)
 
         """ Guided Image Translation """
         print("define translation")
@@ -653,19 +658,19 @@ class INIT(object) :
         if self.direction == 'a2b' :
             guide_content_A, guide_style_A = self.Encoder_A(self.content_image, reuse=True)
             guide_content_B, guide_style_B = self.Encoder_B(self.style_image, reuse=True)
-            guide_content_oa, guide_style_oa = self.Encoder_a(self.content_o, reuse=True)
-            guide_content_ob, guide_style_ob = self.Encoder_b(self.style_o, reuse=True)
+            guide_content_oa, guide_style_oa = self.Encoder_A(self.content_o, reuse=True)
+            guide_content_ob, guide_style_ob = self.Encoder_B(self.style_o, reuse=True)
 
         else :
             guide_content_B, guide_style_B = self.Encoder_B(self.content_image, reuse=True)
             guide_content_A, guide_style_A = self.Encoder_A(self.style_image, reuse=True)
-            guide_content_oa, guide_style_oa = self.Encoder_a(self.style_o, reuse=True)
-            guide_content_ob, guide_style_ob = self.Encoder_b(self.content_o, reuse=True)
+            guide_content_oa, guide_style_oa = self.Encoder_A(self.style_o, reuse=True)
+            guide_content_ob, guide_style_ob = self.Encoder_B(self.content_o, reuse=True)
 
         self.guide_fake_A = self.Decoder_A(content_B=guide_content_B, style_A=guide_style_A, reuse=True)
         self.guide_fake_B = self.Decoder_B(content_A=guide_content_A, style_B=guide_style_B, reuse=True)
-        self.guide_fake_a = self.Decoder_a(content_b=guide_content_ob, style_a=guide_style_oa, reuse=True)
-        self.guide_fake_b = self.Decoder_b(content_a=guide_content_oa, style_b=guide_style_ob, reuse=True)
+        self.guide_fake_a = self.Decoder_A(content_B=guide_content_ob, style_A=guide_style_oa, reuse=True)
+        self.guide_fake_b = self.Decoder_B(content_A=guide_content_oa, style_B=guide_style_ob, reuse=True)
 
     def train(self):
         # initialize all variables

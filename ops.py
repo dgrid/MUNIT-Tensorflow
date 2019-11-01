@@ -18,7 +18,7 @@ def conv(x, channels, kernel=4, stride=2, pad=0, pad_type='zero', use_bias=True,
             weight_init = tf_contrib.layers.variance_scaling_initializer()
 
         if pad > 0:
-            h = x.get_shape().as_list()[1]
+            h = tf.convert_to_tensor(x).get_shape().as_list()[1]
             if h % stride == 0:
                 pad = pad * 2
             else:
@@ -33,7 +33,6 @@ def conv(x, channels, kernel=4, stride=2, pad=0, pad_type='zero', use_bias=True,
                 x = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]])
             if pad_type == 'reflect':
                 x = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]], mode='REFLECT')
-
         x = tf.layers.conv2d(inputs=x, filters=channels,
                              kernel_size=kernel, kernel_initializer=weight_init,
                              kernel_regularizer=weight_regularizer,
