@@ -304,317 +304,7 @@ class INIT(object) :
 
         return fake_A_logit, fake_B_logit
 
-    def load_data(self, gpu_device):
-        """ Input Image"""
-        """
-
-        trainA, trainB = self.dataset_builder.build_dataset()
-
-        # print()
-        # print('##### test info ####')
-        # for key, value in trainA[0].items():
-        #     print(key, value)
-
-        # TODO: totally wrong
-        Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
-        self.dataset_builder.generator(trainA, Image_Data_Class)
-        trainA_generator = partial(self.dataset_builder.generator, trainA, Image_Data_Class)
-        trainB_generator = partial(self.dataset_builder.generator, trainB, Image_Data_Class)
-
-        output_types = {
-            'global': tf.float32,
-            'background': tf.float32,
-            'instances': tf.float32
-        }
-        output_shapes = {
-            'global': tf.TensorShape(Image_Data_Class.get_image_shape()),
-            'background': tf.TensorShape(Image_Data_Class.get_image_shape()),
-            'instances': tf.TensorShape([None, ] + Image_Data_Class.get_object_shape()),
-        }
-        trainA = Dataset.from_generator(trainA_generator, output_types, output_shapes)
-        trainB = Dataset.from_generator(trainB_generator, output_types, output_shapes)
-
-        trainA = trainA.prefetch(self.batch_size) \
-                    .shuffle(self.dataset_num) \
-                    .apply(batch_and_drop_remainder(self.batch_size)) \
-                    .apply(prefetch_to_device(gpu_device, None)) \
-                    .repeat()
-        trainB = trainB.prefetch(self.batch_size) \
-                    .shuffle(self.dataset_num) \
-                    .apply(batch_and_drop_remainder(self.batch_size)) \
-                    .apply(prefetch_to_device(gpu_device, None)) \
-                    .repeat()
-
-        trainA_iterator = trainA.make_one_shot_iterator()
-        trainB_iterator = trainB.make_one_shot_iterator()
-
-        self.domain_A_all = trainA_iterator.get_next()
-        self.domain_B_all = trainB_iterator.get_next()
-
-        self.domain_A = self.domain_A_all['global']
-        # randomly select one instance for each interation
-        self.domain_a = self.domain_A_all['instances']
-        print("#"*20, "test data format", "#"*20,)
-        print("domain a", type(self.domain_a))
-        print()
-        # self.domain_a = random.sample(self.domain_A_all['instances'], 1)
-        self.domain_a_bg = self.domain_A_all['background']
-
-        self.domain_B = self.domain_B_all['global']
-        # randomly select one instance for each interation
-        self.domain_b = self.domain_B_all['instances']
-        # self.domain_b = random.sample*(self.domain_B_all['instances'], 1)
-        self.domain_b_bg = self.domain_B_all['background']
-
-        """
-        pass
-
-    def translation(self, gpu_device):  
-        # self.load_data()
-        # domain_A domain_B etc ...     
         
-        # temporary data for testing
-        d_A = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
-        d_B = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
-
-        d_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, 3])
-        d_b = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, 3])
-        
-        d_abg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
-        d_bbg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
-
-        self.domain_A = tf.cast(d_A, tf.float32)
-        self.domain_B = tf.cast(d_B, tf.float32)
-        self.domain_a = tf.cast(d_a, tf.float32)
-        self.domain_b = tf.cast(d_b, tf.float32)
-        self.domain_a_bg = tf.cast(d_abg, tf.float32)
-        self.domain_b_bg = tf.cast(d_bbg, tf.float32)
-
-        """ Define Encoder, Generator, Discriminator """
-        print()
-        print(" Define Encoder, Generator, Discriminator ")
-        self.style_a = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_a')
-        self.style_b = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_b')
-
-        self.style_ao = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_ao')
-        self.style_bo = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_bo')
-
-        # encode (global)
-        print('#'*20)
-        content_a, style_a_prime = self.Encoder_A(self.domain_A)
-        content_b, style_b_prime = self.Encoder_B(self.domain_B)
-
-        # encode (background)
-        print('global shape ', self.domain_A.shape.as_list())
-        c_a_bg, s_a_bg_prime = self.Encoder_A(self.domain_a_bg, reuse=True)
-        c_b_bg, s_b_bg_prime = self.Encoder_B(self.domain_b_bg, reuse=True)
-
-        # instance encode
-        print('instance shape ', self.domain_a.shape.as_list())
-        c_a, s_a_prime = self.Encoder_A(self.domain_a) # 
-        c_b, s_b_prime = self.Encoder_B(self.domain_b) #
-
-        # decode (within domain)
-        # global
-        x_aa = self.Decoder_A(content_B=content_a, style_A=style_a_prime)
-        x_bb = self.Decoder_B(content_A=content_b, style_B=style_b_prime)
-        # instance
-        x_aa_o = self.Decoder_A(content_B=c_a, style_A=s_a_prime) #
-        x_bb_o = self.Decoder_B(content_A=c_b, style_B=s_b_prime) #
-
-        # decode (cross domain)
-        # among images
-        x_ba = self.Decoder_A(content_B=content_b, style_A=self.style_a, reuse=True)
-        x_ab = self.Decoder_B(content_A=content_a, style_B=self.style_b, reuse=True)
-        # among instances
-        x_ba_o = self.Decoder_A(content_B=c_b, style_A=self.style_ao, reuse=True) #
-        x_ab_o = self.Decoder_B(content_A=c_a, style_B=self.style_bo, reuse=True) #
-
-        # decode (cross granularity)
-        x_Aa = self.Decoder_A(content_B=c_a, style_A=style_a_prime, reuse=True) #
-        x_Bb = self.Decoder_B(content_A=c_b, style_B=style_b_prime, reuse=True) #
-        x_Aa_bg = self.Decoder_A(content_B=c_a, style_A=s_a_bg_prime, reuse=True) #
-        x_Bb_bg = self.Decoder_B(content_A=c_b, style_B=s_b_bg_prime, reuse=True) #
-
-
-        # encode again
-        # cross domain (global)
-        print(x_ba.shape.as_list())
-        content_b_, style_a_ = self.Encoder_A(x_ba, reuse=tf.AUTO_REUSE)
-        content_a_, style_b_ = self.Encoder_B(x_ab, reuse=tf.AUTO_REUSE)
-        # cross domain (instance)
-        c_a_, s_a_ = self.Encoder_A(x_ab_o, reuse=True) #
-        c_b_, s_b_ = self.Encoder_B(x_ba_o, reuse=True) #
-        # cross granularity (instance & global)
-        c_a_o, s_a_g = self.Encoder_A(x_Aa, reuse=True) #
-        c_b_o, s_b_g = self.Encoder_B(x_Bb, reuse=True) #
-        # cross granularity (instance & background)
-        c_a_obg, s_a_bg = self.Encoder_A(x_Aa_bg, reuse=True) #
-        c_b_obg, s_b_bg = self.Encoder_B(x_Bb_bg, reuse=True) #
-
-        # cross granularity (global & background)
-        c_a_gbg, s_a_g2 = self.Encoder_A(x_Aa_bg, reuse=True) #
-        c_b_gbg, s_b_g2 = self.Encoder_B(x_Bb_bg, reuse=True) #
-
-
-        # decode again (if needed)
-        if self.recon_x_cyc_w > 0 :
-            x_aba = self.Decoder_A(content_B=content_a_, style_A=style_a_prime, reuse=True)
-            x_bab = self.Decoder_B(content_A=content_b_, style_B=style_b_prime, reuse=True)
-
-            x_aba_o = self.Decoder_A(content_B=c_a_, style_A=s_a_prime) #
-            x_bab_o = self.Decoder_B(content_A=c_b_, style_B=s_b_prime) #
-
-            x_aba_og = self.Decoder_A(content_B=c_a_o, style_A=s_a_prime) #
-            x_bab_og = self.Decoder_B(content_A=c_b_o, style_B=s_b_prime) #
-
-            x_aba_ob = self.Decoder_A(content_B=c_a_o, style_A=s_a_bg_prime) #
-            x_bab_ob = self.Decoder_B(content_A=c_b_o, style_B=s_b_bg_prime) #
-
-            cyc_recon_A = L1_loss(x_aba, self.domain_A)
-            cyc_recon_B = L1_loss(x_bab, self.domain_B)
-
-            cyc_recon_a = L1_loss(x_aba_o, self.domain_a)
-            cyc_recon_b = L1_loss(x_bab_o, self.domain_b)
-
-            cyc_recon_ag = L1_loss(x_aba_og, self.domain_a)
-            cyc_recon_bg = L1_loss(x_bab_og, self.domain_b)
-
-            cyc_recon_ab = L1_loss(x_aba_ob, self.domain_a)
-            cyc_recon_bb = L1_loss(x_bab_ob, self.domain_b)
-
-        else :
-            cyc_recon_A = 0.0
-            cyc_recon_B = 0.0
-            cyc_recon_a = 0.0
-            cyc_recon_b = 0.0
-            cyc_recon_ag = 0.0
-            cyc_recon_bg = 0.0
-            cyc_recon_ab = 0.0
-            cyc_recon_bb = 0.0
-
-        real_A_logit, real_B_logit = self.discriminate_real(self.domain_A, self.domain_B, reuse=tf.AUTO_REUSE)
-        fake_A_logit, fake_B_logit = self.discriminate_fake(x_ba, x_ab, reuse=True)
-        # instance (cross domain)
-        real_a_logit, real_b_logit = self.discriminate_real(self.domain_a, self.domain_b, reuse=True)
-        fake_a_logit, fake_b_logit = self.discriminate_fake(x_ba_o, x_ab_o, reuse=True)
-        # instance (cross granularity: global)
-        # real_ag_logit, real_bg_logit = self.discriminate_real(self)
-        fake_ag_logit, fake_bg_logit = self.discriminate_fake(x_Aa, x_Bb, reuse=True)
-        # instance (cross granularity: background)
-        fake_abg_logit, fake_bbg_logit = self.discriminate_fake(x_Aa_bg, x_Bb_bg, reuse=True)
-
-        """ Define Loss """
-        print(" Define Loss ")
-        # Generator loss
-        G_ad_loss_a = generator_loss(self.gan_type, fake_A_logit)
-        G_ad_loss_b = generator_loss(self.gan_type, fake_B_logit)
-
-        G_ad_loss_a_o = generator_loss(self.gan_type, fake_a_logit)
-        G_ad_loss_b_o = generator_loss(self.gan_type, fake_b_logit)
-
-        # instance & global
-        G_ad_loss_ag = generator_loss(self.gan_type, fake_ag_logit)
-        G_ad_loss_bg = generator_loss(self.gan_type, fake_bg_logit)
-        # instance & background
-        G_ad_loss_abg = generator_loss(self.gan_type, fake_abg_logit)
-        G_ad_loss_bbg = generator_loss(self.gan_type, fake_bbg_logit)
-
-        G_ad_loss_ao = G_ad_loss_a_o + G_ad_loss_ag + G_ad_loss_abg
-        G_ad_loss_bo = G_ad_loss_b_o + G_ad_loss_bg + G_ad_loss_bbg
-
-        D_ad_loss_a = discriminator_loss(self.gan_type, real_A_logit, fake_A_logit)
-        D_ad_loss_b = discriminator_loss(self.gan_type, real_B_logit, fake_B_logit)
-
-
-        D_ad_loss_ao = discriminator_loss(self.gan_type, real_a_logit, fake_a_logit) + \
-                    discriminator_loss(self.gan_type, real_a_logit, fake_ag_logit)
-        D_ad_loss_bo = discriminator_loss(self.gan_type, real_b_logit, fake_b_logit) + \
-                    discriminator_loss(self.gan_type, real_a_logit, fake_bg_logit)
-        # D_ad_loss_ag = discriminator_loss(self.gan_type, real_a_logit, fake_ag_logit)
-        # D_ad_loss_bg = discriminator_loss(self.gan_type, real_a_logit, fake_bg_logit)
-
-        # Reconstarction loss
-        # global
-        recon_A = L1_loss(x_aa, self.domain_A) # reconstruction
-        recon_B = L1_loss(x_bb, self.domain_B) # reconstruction
-        # instance
-        recon_a = L1_loss(x_aa_o, self.domain_a)
-        recon_b = L1_loss(x_bb_o, self.domain_b)
-
-        # The style reconstruction loss encourages
-        # diverse outputs given different style codes
-        # global
-        recon_style_A = L1_loss(style_a_, self.style_a) + L1_loss(s_a_g, self.style_a) + L1_loss(s_a_g2, self.style_a)
-        recon_style_B = L1_loss(style_b_, self.style_b) + L1_loss(s_b_g, self.style_b) + L1_loss(s_b_g2, self.style_b)
-
-        # instance
-        recon_s_a = L1_loss(s_a_, self.style_ao)
-        recon_s_b = L1_loss(s_b_, self.style_bo)
-
-        # background
-        # recon_s_a_bg = L1_loss() + L1_loss()
-        # recon_s_b_bg = L1_loss() + L1_loss()
-
-        # The content reconstruction loss encourages
-        # the translated image to preserve semantic content of the input image
-        recon_content_A = L1_loss(content_a_, content_a)
-        recon_content_B = L1_loss(content_b_, content_b)
-
-        # instance
-        # recon from cross domain
-        recon_c_a = L1_loss(c_a_, c_a) + L1_loss(c_a_o, c_a) + L1_loss(c_a_obg, c_a)
-        recon_c_b = L1_loss(c_b_, c_b) + L1_loss(c_b_o, c_b) + L1_loss(c_b_obg, c_b)
-
-        # background 
-        # recon_c_a_bg = L1_loss(c_a_gbg, c_a_bg) + L1_loss()
-        # recon_c_b_bg = L1_loss() + L1_loss()
-
-
-        Generator_A_loss = self.gan_w * G_ad_loss_a + \
-                        self.recon_x_w * recon_A + \
-                        self.recon_s_w * recon_style_A + \
-                        self.recon_c_w * recon_content_A + \
-                        self.recon_x_cyc_w * cyc_recon_A
-
-
-        Generator_B_loss = self.gan_w * G_ad_loss_b + \
-                        self.recon_x_w * recon_B + \
-                        self.recon_s_w * recon_style_B + \
-                        self.recon_c_w * recon_content_B + \
-                        self.recon_x_cyc_w * cyc_recon_B
-
-        Generator_a_loss = self.gan_o_w * G_ad_loss_ao + \
-                        self.recon_o_w * recon_a + \
-                        self.recon_o_s_w * recon_s_a + \
-                        self.recon_o_c_w * recon_c_a + \
-                        self.recon_o_cyc_w * cyc_recon_a + \
-                        self.recon_o_cyc_w * cyc_recon_a + \
-                        self.recon_o_cyc_w * cyc_recon_ab + \
-                        self.recon_o_cyc_w * cyc_recon_ag
-
-        Generator_b_loss = self.gan_o_w * G_ad_loss_bo + \
-                        self.recon_o_w * recon_b + \
-                        self.recon_o_s_w * recon_s_b + \
-                        self.recon_o_c_w * recon_c_b + \
-                        self.recon_o_cyc_w * cyc_recon_b + \
-                        self.recon_o_cyc_w * cyc_recon_b + \
-                        self.recon_o_cyc_w * cyc_recon_bb + \
-                        self.recon_o_cyc_w * cyc_recon_bg
-
-        Discriminator_A_loss = self.gan_w * D_ad_loss_a + self.gan_o_w * D_ad_loss_ao
-        Discriminator_B_loss = self.gan_w * D_ad_loss_b + self.gan_o_w * D_ad_loss_bo
-
-        # self.Generator_loss = Generator_A_loss + Generator_B_loss + \
-        #                     Generator_a_loss + Generator_b_loss + \
-        #                     regularization_loss('encoder') + regularization_loss('decoder')
-        # self.Discriminator_loss = Discriminator_A_loss + Discriminator_B_loss + regularization_loss('discriminator')
-        Generator_loss = Generator_A_loss + Generator_B_loss + Generator_a_loss + Generator_b_loss + regularization_loss('encoder') + regularization_loss('decoder')
-        Discriminator_loss = Discriminator_A_loss + Discriminator_B_loss + regularization_loss('discriminator')
-
-        return Generator_loss, Discriminator_loss
-        
-
     def build_model(self):
         self.lr = tf.placeholder(tf.float32, name='learning_rate')
 
@@ -626,7 +316,294 @@ class INIT(object) :
                 with tf.variable_scope(tf.get_variable_scope(), reuse=(gpu_id > 0)):
                     gpu_device = '/gpu:{}'.format(gpu_id)
 
-                    Generator_loss, Discriminator_loss = self.translation(gpu_device)
+                    """ Input Image"""
+                    """
+                    trainA, trainB = self.dataset_builder.build_dataset()
+
+                    # TODO: totally wrong
+                    Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
+                    self.dataset_builder.generator(trainA, Image_Data_Class)
+                    trainA_generator = partial(self.dataset_builder.generator, trainA, Image_Data_Class)
+                    trainB_generator = partial(self.dataset_builder.generator, trainB, Image_Data_Class)
+
+                    output_types = {
+                        'global': tf.float32,
+                        'background': tf.float32,
+                        'instances': tf.float32
+                    }
+                    output_shapes = {
+                        'global': tf.TensorShape(Image_Data_Class.get_image_shape()),
+                        'background': tf.TensorShape(Image_Data_Class.get_image_shape()),
+                        'instances': tf.TensorShape([None, ] + Image_Data_Class.get_object_shape()),
+                    }
+                    trainA = Dataset.from_generator(trainA_generator, output_types, output_shapes)
+                    trainB = Dataset.from_generator(trainB_generator, output_types, output_shapes)
+
+                    trainA = trainA.prefetch(self.batch_size) \
+                                .shuffle(self.dataset_num) \
+                                .apply(batch_and_drop_remainder(self.batch_size)) \
+                                .apply(prefetch_to_device(gpu_device, None)) \
+                                .repeat()
+                    trainB = trainB.prefetch(self.batch_size) \
+                                .shuffle(self.dataset_num) \
+                                .apply(batch_and_drop_remainder(self.batch_size)) \
+                                .apply(prefetch_to_device(gpu_device, None)) \
+                                .repeat()
+
+                    trainA_iterator = trainA.make_one_shot_iterator()
+                    trainB_iterator = trainB.make_one_shot_iterator()
+
+                    self.domain_A_all = trainA_iterator.get_next()
+                    self.domain_B_all = trainB_iterator.get_next()
+
+                    self.domain_A = self.domain_A_all['global']
+                    # randomly select one instance for each interation
+                    self.domain_a = self.domain_A_all['instances']
+                    print("#"*20, "test data format", "#"*20,)
+                    print("domain a", type(self.domain_a))
+                    print()
+                    # self.domain_a = random.sample(self.domain_A_all['instances'], 1)
+                    self.domain_a_bg = self.domain_A_all['background']
+
+                    self.domain_B = self.domain_B_all['global']
+                    # randomly select one instance for each interation
+                    self.domain_b = self.domain_B_all['instances']
+                    # self.domain_b = random.sample*(self.domain_B_all['instances'], 1)
+                    self.domain_b_bg = self.domain_B_all['background']
+
+                    """
+                     # temporary data for testing
+                    d_A = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
+                    d_B = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
+
+                    d_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, 3])
+                    d_b = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, 3])
+                    
+                    d_abg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
+                    d_bbg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
+
+                    self.domain_A = tf.cast(d_A, tf.float32)
+                    self.domain_B = tf.cast(d_B, tf.float32)
+                    self.domain_a = tf.cast(d_a, tf.float32)
+                    self.domain_b = tf.cast(d_b, tf.float32)
+                    self.domain_a_bg = tf.cast(d_abg, tf.float32)
+                    self.domain_b_bg = tf.cast(d_bbg, tf.float32)
+
+                    """ Define Encoder, Generator, Discriminator """
+                    print()
+                    print(" Define Encoder, Generator, Discriminator ")
+                    self.style_a = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_a')
+                    self.style_b = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_b')
+
+                    self.style_ao = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_ao')
+                    self.style_bo = tf.placeholder(tf.float32, shape=[self.batch_size, 1, 1, self.style_dim], name='style_bo')
+
+                    # encode (global)
+                    content_a, style_a_prime = self.Encoder_A(self.domain_A)
+                    content_b, style_b_prime = self.Encoder_B(self.domain_B)
+
+                    # encode (background)
+                    # print('global shape ', self.domain_A.shape.as_list())
+                    c_a_bg, s_a_bg_prime = self.Encoder_A(self.domain_a_bg, reuse=True)
+                    c_b_bg, s_b_bg_prime = self.Encoder_B(self.domain_b_bg, reuse=True)
+
+                    # instance encode
+                    # print('instance shape ', self.domain_a.shape.as_list())
+                    c_a, s_a_prime = self.Encoder_A(self.domain_a) # 
+                    c_b, s_b_prime = self.Encoder_B(self.domain_b) #
+
+                    # decode (within domain)
+                    # global
+                    x_aa = self.Decoder_A(content_B=content_a, style_A=style_a_prime)
+                    x_bb = self.Decoder_B(content_A=content_b, style_B=style_b_prime)
+                    # instance
+                    x_aa_o = self.Decoder_A(content_B=c_a, style_A=s_a_prime) #
+                    x_bb_o = self.Decoder_B(content_A=c_b, style_B=s_b_prime) #
+
+                    # decode (cross domain)
+                    # among images
+                    x_ba = self.Decoder_A(content_B=content_b, style_A=self.style_a, reuse=True)
+                    x_ab = self.Decoder_B(content_A=content_a, style_B=self.style_b, reuse=True)
+                    # among instances
+                    x_ba_o = self.Decoder_A(content_B=c_b, style_A=self.style_ao, reuse=True) #
+                    x_ab_o = self.Decoder_B(content_A=c_a, style_B=self.style_bo, reuse=True) #
+
+                    # decode (cross granularity)
+                    x_Aa = self.Decoder_A(content_B=c_a, style_A=style_a_prime, reuse=True) #
+                    x_Bb = self.Decoder_B(content_A=c_b, style_B=style_b_prime, reuse=True) #
+                    x_Aa_bg = self.Decoder_A(content_B=c_a, style_A=s_a_bg_prime, reuse=True) #
+                    x_Bb_bg = self.Decoder_B(content_A=c_b, style_B=s_b_bg_prime, reuse=True) #
+
+
+                    # encode again
+                    # cross domain (global)
+                    content_b_, style_a_ = self.Encoder_A(x_ba, reuse=tf.AUTO_REUSE)
+                    content_a_, style_b_ = self.Encoder_B(x_ab, reuse=tf.AUTO_REUSE)
+                    # cross domain (instance)
+                    c_a_, s_a_ = self.Encoder_A(x_ab_o, reuse=True) #
+                    c_b_, s_b_ = self.Encoder_B(x_ba_o, reuse=True) #
+                    # cross granularity (instance & global)
+                    c_a_o, s_a_g = self.Encoder_A(x_Aa, reuse=True) #
+                    c_b_o, s_b_g = self.Encoder_B(x_Bb, reuse=True) #
+                    # cross granularity (instance & background)
+                    c_a_obg, s_a_bg = self.Encoder_A(x_Aa_bg, reuse=True) #
+                    c_b_obg, s_b_bg = self.Encoder_B(x_Bb_bg, reuse=True) #
+
+                    # cross granularity (global & background)
+                    c_a_gbg, s_a_g2 = self.Encoder_A(x_Aa_bg, reuse=True) #
+                    c_b_gbg, s_b_g2 = self.Encoder_B(x_Bb_bg, reuse=True) #
+
+
+                    # decode again (if needed)
+                    if self.recon_x_cyc_w > 0 :
+                        x_aba = self.Decoder_A(content_B=content_a_, style_A=style_a_prime, reuse=True)
+                        x_bab = self.Decoder_B(content_A=content_b_, style_B=style_b_prime, reuse=True)
+
+                        x_aba_o = self.Decoder_A(content_B=c_a_, style_A=s_a_prime) #
+                        x_bab_o = self.Decoder_B(content_A=c_b_, style_B=s_b_prime) #
+
+                        x_aba_og = self.Decoder_A(content_B=c_a_o, style_A=s_a_prime) #
+                        x_bab_og = self.Decoder_B(content_A=c_b_o, style_B=s_b_prime) #
+
+                        x_aba_ob = self.Decoder_A(content_B=c_a_o, style_A=s_a_bg_prime) #
+                        x_bab_ob = self.Decoder_B(content_A=c_b_o, style_B=s_b_bg_prime) #
+
+                        cyc_recon_A = L1_loss(x_aba, self.domain_A)
+                        cyc_recon_B = L1_loss(x_bab, self.domain_B)
+
+                        cyc_recon_a = L1_loss(x_aba_o, self.domain_a)
+                        cyc_recon_b = L1_loss(x_bab_o, self.domain_b)
+
+                        cyc_recon_ag = L1_loss(x_aba_og, self.domain_a)
+                        cyc_recon_bg = L1_loss(x_bab_og, self.domain_b)
+
+                        cyc_recon_ab = L1_loss(x_aba_ob, self.domain_a)
+                        cyc_recon_bb = L1_loss(x_bab_ob, self.domain_b)
+
+                    else :
+                        cyc_recon_A = 0.0
+                        cyc_recon_B = 0.0
+                        cyc_recon_a = 0.0
+                        cyc_recon_b = 0.0
+                        cyc_recon_ag = 0.0
+                        cyc_recon_bg = 0.0
+                        cyc_recon_ab = 0.0
+                        cyc_recon_bb = 0.0
+
+                    real_A_logit, real_B_logit = self.discriminate_real(self.domain_A, self.domain_B, reuse=tf.AUTO_REUSE)
+                    fake_A_logit, fake_B_logit = self.discriminate_fake(x_ba, x_ab, reuse=True)
+                    # instance (cross domain)
+                    real_a_logit, real_b_logit = self.discriminate_real(self.domain_a, self.domain_b, reuse=True)
+                    fake_a_logit, fake_b_logit = self.discriminate_fake(x_ba_o, x_ab_o, reuse=True)
+                    # instance (cross granularity: global)
+                    # real_ag_logit, real_bg_logit = self.discriminate_real(self)
+                    fake_ag_logit, fake_bg_logit = self.discriminate_fake(x_Aa, x_Bb, reuse=True)
+                    # instance (cross granularity: background)
+                    fake_abg_logit, fake_bbg_logit = self.discriminate_fake(x_Aa_bg, x_Bb_bg, reuse=True)
+
+                    """ Define Loss """
+                    print(" Define Loss ")
+                    # Generator loss
+                    G_ad_loss_a = generator_loss(self.gan_type, fake_A_logit)
+                    G_ad_loss_b = generator_loss(self.gan_type, fake_B_logit)
+
+                    G_ad_loss_a_o = generator_loss(self.gan_type, fake_a_logit)
+                    G_ad_loss_b_o = generator_loss(self.gan_type, fake_b_logit)
+
+                    # instance & global
+                    G_ad_loss_ag = generator_loss(self.gan_type, fake_ag_logit)
+                    G_ad_loss_bg = generator_loss(self.gan_type, fake_bg_logit)
+                    # instance & background
+                    G_ad_loss_abg = generator_loss(self.gan_type, fake_abg_logit)
+                    G_ad_loss_bbg = generator_loss(self.gan_type, fake_bbg_logit)
+
+                    G_ad_loss_ao = G_ad_loss_a_o + G_ad_loss_ag + G_ad_loss_abg
+                    G_ad_loss_bo = G_ad_loss_b_o + G_ad_loss_bg + G_ad_loss_bbg
+
+                    D_ad_loss_a = discriminator_loss(self.gan_type, real_A_logit, fake_A_logit)
+                    D_ad_loss_b = discriminator_loss(self.gan_type, real_B_logit, fake_B_logit)
+
+
+                    D_ad_loss_ao = discriminator_loss(self.gan_type, real_a_logit, fake_a_logit) + \
+                                discriminator_loss(self.gan_type, real_a_logit, fake_ag_logit)
+                    D_ad_loss_bo = discriminator_loss(self.gan_type, real_b_logit, fake_b_logit) + \
+                                discriminator_loss(self.gan_type, real_a_logit, fake_bg_logit)
+                    # D_ad_loss_ag = discriminator_loss(self.gan_type, real_a_logit, fake_ag_logit)
+                    # D_ad_loss_bg = discriminator_loss(self.gan_type, real_a_logit, fake_bg_logit)
+
+                    # Reconstarction loss
+                    # global
+                    recon_A = L1_loss(x_aa, self.domain_A) # reconstruction
+                    recon_B = L1_loss(x_bb, self.domain_B) # reconstruction
+                    # instance
+                    recon_a = L1_loss(x_aa_o, self.domain_a)
+                    recon_b = L1_loss(x_bb_o, self.domain_b)
+
+                    # The style reconstruction loss encourages
+                    # diverse outputs given different style codes
+                    # global
+                    recon_style_A = L1_loss(style_a_, self.style_a) + L1_loss(s_a_g, self.style_a) + L1_loss(s_a_g2, self.style_a)
+                    recon_style_B = L1_loss(style_b_, self.style_b) + L1_loss(s_b_g, self.style_b) + L1_loss(s_b_g2, self.style_b)
+
+                    # instance
+                    recon_s_a = L1_loss(s_a_, self.style_ao)
+                    recon_s_b = L1_loss(s_b_, self.style_bo)
+
+                    # background
+                    # recon_s_a_bg = L1_loss() + L1_loss()
+                    # recon_s_b_bg = L1_loss() + L1_loss()
+
+                    # The content reconstruction loss encourages
+                    # the translated image to preserve semantic content of the input image
+                    recon_content_A = L1_loss(content_a_, content_a)
+                    recon_content_B = L1_loss(content_b_, content_b)
+
+                    # instance
+                    # recon from cross domain
+                    recon_c_a = L1_loss(c_a_, c_a) + L1_loss(c_a_o, c_a) + L1_loss(c_a_obg, c_a)
+                    recon_c_b = L1_loss(c_b_, c_b) + L1_loss(c_b_o, c_b) + L1_loss(c_b_obg, c_b)
+
+                    # background 
+                    # recon_c_a_bg = L1_loss(c_a_gbg, c_a_bg) + L1_loss()
+                    # recon_c_b_bg = L1_loss() + L1_loss()
+
+
+                    Generator_A_loss = self.gan_w * G_ad_loss_a + \
+                                    self.recon_x_w * recon_A + \
+                                    self.recon_s_w * recon_style_A + \
+                                    self.recon_c_w * recon_content_A + \
+                                    self.recon_x_cyc_w * cyc_recon_A
+
+
+                    Generator_B_loss = self.gan_w * G_ad_loss_b + \
+                                    self.recon_x_w * recon_B + \
+                                    self.recon_s_w * recon_style_B + \
+                                    self.recon_c_w * recon_content_B + \
+                                    self.recon_x_cyc_w * cyc_recon_B
+
+                    Generator_a_loss = self.gan_o_w * G_ad_loss_ao + \
+                                    self.recon_o_w * recon_a + \
+                                    self.recon_o_s_w * recon_s_a + \
+                                    self.recon_o_c_w * recon_c_a + \
+                                    self.recon_o_cyc_w * cyc_recon_a + \
+                                    self.recon_o_cyc_w * cyc_recon_a + \
+                                    self.recon_o_cyc_w * cyc_recon_ab + \
+                                    self.recon_o_cyc_w * cyc_recon_ag
+
+                    Generator_b_loss = self.gan_o_w * G_ad_loss_bo + \
+                                    self.recon_o_w * recon_b + \
+                                    self.recon_o_s_w * recon_s_b + \
+                                    self.recon_o_c_w * recon_c_b + \
+                                    self.recon_o_cyc_w * cyc_recon_b + \
+                                    self.recon_o_cyc_w * cyc_recon_b + \
+                                    self.recon_o_cyc_w * cyc_recon_bb + \
+                                    self.recon_o_cyc_w * cyc_recon_bg
+
+                    Discriminator_A_loss = self.gan_w * D_ad_loss_a + self.gan_o_w * D_ad_loss_ao
+                    Discriminator_B_loss = self.gan_w * D_ad_loss_b + self.gan_o_w * D_ad_loss_bo
+
+                    Generator_loss = Generator_A_loss + Generator_B_loss + Generator_a_loss + Generator_b_loss + regularization_loss('encoder') + regularization_loss('decoder')
+                    Discriminator_loss = Discriminator_A_loss + Discriminator_B_loss + regularization_loss('discriminator')
 
                     g_loss_per_gpu.append(Generator_loss)
                     d_loss_per_gpu.append(Discriminator_loss)
