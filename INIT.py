@@ -31,7 +31,7 @@ class INIT(object) :
 
         self.gan_type = args.gan_type
 
-        self.batch_size = args.batch_size
+        self.all_batch_size = args.batch_size
         self.print_freq = args.print_freq
         self.save_freq = args.save_freq
         self.num_style = args.num_style # for test
@@ -45,6 +45,12 @@ class INIT(object) :
 
         self.init_lr = args.lr
         self.ch = args.ch
+
+        # list of GUP ids
+        # for multi-GPUs training
+        self.gpu_list = args.gpu_list
+        self.gpu_num = len(self.gup_list)
+        self.batch_size = get_bacth_size(self.all_batch_size, self.gpu_num)
 
         """ Weight """
         # global
@@ -91,6 +97,10 @@ class INIT(object) :
         print("# epoch : ", self.epoch)
         print("# iteration per epoch : ", self.iteration)
         print("# style in test phase : ", self.num_style)
+
+        print()
+        print("GPU number : ", self.gpu_num)
+        print("batch size for each GPU : ", self.batch_size)
 
         print()
 
@@ -294,9 +304,7 @@ class INIT(object) :
 
         return fake_A_logit, fake_B_logit
 
-    def build_model(self):
-        self.lr = tf.placeholder(tf.float32, name='learning_rate')
-
+    def load_data(self, gpu_device):
         """ Input Image"""
         """
 
@@ -329,10 +337,12 @@ class INIT(object) :
         trainA = trainA.prefetch(self.batch_size) \
                     .shuffle(self.dataset_num) \
                     .apply(batch_and_drop_remainder(self.batch_size)) \
+                    .apply(prefetch_to_device(gpu_device, None)) \
                     .repeat()
         trainB = trainB.prefetch(self.batch_size) \
                     .shuffle(self.dataset_num) \
                     .apply(batch_and_drop_remainder(self.batch_size)) \
+                    .apply(prefetch_to_device(gpu_device, None)) \
                     .repeat()
 
         trainA_iterator = trainA.make_one_shot_iterator()
@@ -357,6 +367,12 @@ class INIT(object) :
         self.domain_b_bg = self.domain_B_all['background']
 
         """
+        pass
+
+    def translation(self, gpu_device):  
+        # self.load_data()
+        # domain_A domain_B etc ...     
+        
         # temporary data for testing
         d_A = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
         d_B = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
@@ -512,9 +528,9 @@ class INIT(object) :
 
 
         D_ad_loss_ao = discriminator_loss(self.gan_type, real_a_logit, fake_a_logit) + \
-                       discriminator_loss(self.gan_type, real_a_logit, fake_ag_logit)
+                    discriminator_loss(self.gan_type, real_a_logit, fake_ag_logit)
         D_ad_loss_bo = discriminator_loss(self.gan_type, real_b_logit, fake_b_logit) + \
-                       discriminator_loss(self.gan_type, real_a_logit, fake_bg_logit)
+                    discriminator_loss(self.gan_type, real_a_logit, fake_bg_logit)
         # D_ad_loss_ag = discriminator_loss(self.gan_type, real_a_logit, fake_ag_logit)
         # D_ad_loss_bg = discriminator_loss(self.gan_type, real_a_logit, fake_bg_logit)
 
@@ -556,43 +572,67 @@ class INIT(object) :
 
 
         Generator_A_loss = self.gan_w * G_ad_loss_a + \
-                           self.recon_x_w * recon_A + \
-                           self.recon_s_w * recon_style_A + \
-                           self.recon_c_w * recon_content_A + \
-                           self.recon_x_cyc_w * cyc_recon_A
+                        self.recon_x_w * recon_A + \
+                        self.recon_s_w * recon_style_A + \
+                        self.recon_c_w * recon_content_A + \
+                        self.recon_x_cyc_w * cyc_recon_A
 
 
         Generator_B_loss = self.gan_w * G_ad_loss_b + \
-                           self.recon_x_w * recon_B + \
-                           self.recon_s_w * recon_style_B + \
-                           self.recon_c_w * recon_content_B + \
-                           self.recon_x_cyc_w * cyc_recon_B
+                        self.recon_x_w * recon_B + \
+                        self.recon_s_w * recon_style_B + \
+                        self.recon_c_w * recon_content_B + \
+                        self.recon_x_cyc_w * cyc_recon_B
 
         Generator_a_loss = self.gan_o_w * G_ad_loss_ao + \
-                           self.recon_o_w * recon_a + \
-                           self.recon_o_s_w * recon_s_a + \
-                           self.recon_o_c_w * recon_c_a + \
-                           self.recon_o_cyc_w * cyc_recon_a + \
-                           self.recon_o_cyc_w * cyc_recon_a + \
-                           self.recon_o_cyc_w * cyc_recon_ab + \
-                           self.recon_o_cyc_w * cyc_recon_ag
+                        self.recon_o_w * recon_a + \
+                        self.recon_o_s_w * recon_s_a + \
+                        self.recon_o_c_w * recon_c_a + \
+                        self.recon_o_cyc_w * cyc_recon_a + \
+                        self.recon_o_cyc_w * cyc_recon_a + \
+                        self.recon_o_cyc_w * cyc_recon_ab + \
+                        self.recon_o_cyc_w * cyc_recon_ag
 
         Generator_b_loss = self.gan_o_w * G_ad_loss_bo + \
-                           self.recon_o_w * recon_b + \
-                           self.recon_o_s_w * recon_s_b + \
-                           self.recon_o_c_w * recon_c_b + \
-                           self.recon_o_cyc_w * cyc_recon_b + \
-                           self.recon_o_cyc_w * cyc_recon_b + \
-                           self.recon_o_cyc_w * cyc_recon_bb + \
-                           self.recon_o_cyc_w * cyc_recon_bg
+                        self.recon_o_w * recon_b + \
+                        self.recon_o_s_w * recon_s_b + \
+                        self.recon_o_c_w * recon_c_b + \
+                        self.recon_o_cyc_w * cyc_recon_b + \
+                        self.recon_o_cyc_w * cyc_recon_b + \
+                        self.recon_o_cyc_w * cyc_recon_bb + \
+                        self.recon_o_cyc_w * cyc_recon_bg
 
         Discriminator_A_loss = self.gan_w * D_ad_loss_a + self.gan_o_w * D_ad_loss_ao
         Discriminator_B_loss = self.gan_w * D_ad_loss_b + self.gan_o_w * D_ad_loss_bo
 
-        self.Generator_loss = Generator_A_loss + Generator_B_loss + \
-                              Generator_a_loss + Generator_b_loss + \
-                              regularization_loss('encoder') + regularization_loss('decoder')
-        self.Discriminator_loss = Discriminator_A_loss + Discriminator_B_loss + regularization_loss('discriminator')
+        # self.Generator_loss = Generator_A_loss + Generator_B_loss + \
+        #                     Generator_a_loss + Generator_b_loss + \
+        #                     regularization_loss('encoder') + regularization_loss('decoder')
+        # self.Discriminator_loss = Discriminator_A_loss + Discriminator_B_loss + regularization_loss('discriminator')
+        Generator_loss = Generator_A_loss + Generator_B_loss + Generator_a_loss + Generator_b_loss + regularization_loss('encoder') + regularization_loss('decoder')
+        Discriminator_loss = Discriminator_A_loss + Discriminator_B_loss + regularization_loss('discriminator')
+
+        return Generator_loss, Discriminator_loss
+        
+
+    def build_model(self):
+        self.lr = tf.placeholder(tf.float32, name='learning_rate')
+
+        g_loss_per_gpu = []
+        d_loss_per_gpu = []
+
+        for gpu_id in self.gpu_list:
+            with tf.device(tf.DeviceSpec(device_type="GPU", device_index=gpu_id)):
+                with tf.variable_scope(tf.get_variable_scope(), reuse=(gpu_id > 0)):
+                    gpu_device = '/gpu:{}'.format(gpu_id)
+
+                    Generator_loss, Discriminator_loss = self.translation(gpu_device)
+
+                    g_loss_per_gpu.append(Generator_loss)
+                    d_loss_per_gpu.append(Discriminator_loss)
+
+        self.Generator_loss = tf.reducemean(g_loss_per_gpu)
+        self.Discriminator_loss = tf.reducemean(d_loss_per_gpu)
 
         """ Training """
         print("define training")
@@ -600,9 +640,13 @@ class INIT(object) :
         G_vars = [var for var in t_vars if 'decoder' in var.name or 'encoder' in var.name]
         D_vars = [var for var in t_vars if 'discriminator' in var.name]
 
+        if len(self.gpu_list) == 1:
+            colocate_grad = False
+        else:
+            colocate_grad = True
 
-        self.G_optim = tf.train.AdamOptimizer(self.lr, beta1=0.5, beta2=0.999).minimize(self.Generator_loss, var_list=G_vars)
-        self.D_optim = tf.train.AdamOptimizer(self.lr, beta1=0.5, beta2=0.999).minimize(self.Discriminator_loss, var_list=D_vars)
+        self.G_optim = tf.train.AdamOptimizer(self.lr, beta1=0.5, beta2=0.999).minimize(self.Generator_loss, var_list=G_vars, colocate_gradients_with_op=colocate_grad)
+        self.D_optim = tf.train.AdamOptimizer(self.lr, beta1=0.5, beta2=0.999).minimize(self.Discriminator_loss, var_list=D_vars, colocate_gradients_with_op=colocate_grad)
 
         """" Summary """
         self.all_G_loss = tf.summary.scalar("Generator_loss", self.Generator_loss)

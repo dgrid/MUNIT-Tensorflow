@@ -199,3 +199,9 @@ def load_pickle(filename, mode='rb'):
 def dump_pickle(obj, filename, mode='wb'):
     with open(filename, mode) as f:
         pickle.dump(obj, f)
+
+def get_bacth_size(batch_size, gup_num):
+    if  gup_num > batch_size:
+        return 1
+    else:
+        return batch_size // gup_num
