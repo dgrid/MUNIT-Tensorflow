@@ -609,8 +609,8 @@ class INIT(object) :
                     g_loss_per_gpu.append(Generator_loss)
                     d_loss_per_gpu.append(Discriminator_loss)
 
-        self.Generator_loss = tf.reducemean(g_loss_per_gpu)
-        self.Discriminator_loss = tf.reducemean(d_loss_per_gpu)
+        self.Generator_loss = tf.reduce_mean(g_loss_per_gpu)
+        self.Discriminator_loss = tf.reduce_mean(d_loss_per_gpu)
 
         """ Training """
         print("define training")
