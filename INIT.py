@@ -623,8 +623,8 @@ class INIT(object) :
         else:
             colocate_grad = True
 
-        self.G_optim = tf.train.AdamOptimizer(self.lr, beta1=0.5, beta2=0.999).minimize(self.Generator_loss, var_list=G_vars, colocate_gradients_with_op=colocate_grad)
-        self.D_optim = tf.train.AdamOptimizer(self.lr, beta1=0.5, beta2=0.999).minimize(self.Discriminator_loss, var_list=D_vars, colocate_gradients_with_op=colocate_grad)
+        self.G_optim = tf.train.AdamOptimizer(self.lr, beta1=0.5, beta2=0.999).minimize(self.Generator_loss, var_list=G_vars, colocate_gradients_with_ops=colocate_grad)
+        self.D_optim = tf.train.AdamOptimizer(self.lr, beta1=0.5, beta2=0.999).minimize(self.Discriminator_loss, var_list=D_vars, colocate_gradients_with_ops=colocate_grad)
 
         """" Summary """
         self.all_G_loss = tf.summary.scalar("Generator_loss", self.Generator_loss)
