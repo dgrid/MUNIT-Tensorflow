@@ -48,8 +48,9 @@ class INIT(object) :
 
         # list of GUP ids
         # for multi-GPUs training
-        self.gpu_list = args.gpu_list
-        self.gpu_num = len(self.gup_list)
+        # self.gpu_list = args.gpu_list
+        self.gpu_list = [2, 3]
+        self.gpu_num = len(self.gpu_list)
         self.batch_size = get_bacth_size(self.all_batch_size, self.gpu_num)
 
         """ Weight """
