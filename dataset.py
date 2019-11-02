@@ -5,12 +5,9 @@ from functools import partial
 
 import numpy as np
 import tensorflow as tf
-# from tensorflow.contrib.data import Dataset, Iterator, batch_and_drop_remainder
-# for v1.15
 from tensorflow.data import Dataset, Iterator
 from tensorflow.contrib.data import batch_and_drop_remainder
 from tensorflow.data.experimental import prefetch_to_device
-
 from sklearn.model_selection import train_test_split
 
 from utils import load_pickle, dump_pickle, get_files, ImageData
@@ -23,7 +20,6 @@ class DatasetBuilder:
         self.image_data_processor = image_data_processor
 
         # assume 'data' directory exists
-        self.dataset_before_split = os.path.join(self.data_folder, 'data', 'all_data.pkl')
         self.dataset_path_trainA = os.path.join(self.data_folder, 'data', 'trainA.pkl')
         self.dataset_path_trainB = os.path.join(self.data_folder, 'data', 'trainB.pkl')
         self.dataset_path_testA = os.path.join(self.data_folder, 'data', 'testA.pkl')
@@ -44,49 +40,47 @@ class DatasetBuilder:
             trainA = load_pickle(self.dataset_path_trainA)
             trainB = load_pickle(self.dataset_path_trainB)
         else:
-            if os.path.exists(self.dataset_before_split):
-                all_images = load_pickle(self.dataset_before_split)
-            else:
-                folder_name = ['cloudy', 'rainy', 'sunny', 'night']
-                all_images = dict()
-                weather_list = os.listdir(self.data_folder)
-                for weather in weather_list:
-                    if weather not in folder_name:
-                        continue
+            # select domain_A and domain_B
+            folder_name = ['cloudy', 'rainy', 'sunny', 'night']
+            weather_list = []
+            for weather in os.listdir(self.data_folder):
+                if weather in folder_name:
+                    weather_list.append(weather)
+            if len(weather_list) != 2:
+                raise ValueError(f"prepare two domains in {self.data_folder}: {weather_list}")
+            weather_A, weather_B = weather_list
 
-                    weather_dir = os.path.join(self.data_folder, weather)
-                    if os.path.isdir(weather_dir):
-                        get_files(weather_dir, all_images)
+            # load images from weather_a and weather_B
+            images_A = dict()
+            get_files(os.path.join(self.data_folder, weather_A), images_A)
+            images_B = dict()
+            get_files(os.path.join(self.data_folder, weather_B), images_B)
 
-                dump_pickle(all_images, self.dataset_before_split)
-
-            print('dividing data into part A & part B')
-            print('all images : ', type(all_images), len(all_images))
-            new_data = []
-            for key, value in all_images.items():
-                if len(value['instance']) > 0:
-                    # temp = value['instance']
-                    # value['instance'] = temp
-                    new_data.append(value)
-            data_num = len(new_data) // 2
-            random.shuffle(new_data)
-            print('new data', len(new_data))
+            # remove no-instance images
             trainA = []
+            for key, value in images_A.items():
+                if len(value['instance']) > 0:
+                    trainA.append(value)
             trainB = []
-            count = 0
-            for i in range(data_num * 2):
-                if i < data_num:
-                    trainA.append(new_data[i])
-                else:
-                    trainB.append(new_data[i])
+            for key, value in images_B.items():
+                if len(value['instance']) > 0:
+                    trainB.append(value)
+
+            # shuffle datum
+            random.shuffle(trainA)
+            random.shuffle(trainB)
+            print(f"domain A({weather_A}): ", len(trainA))
+            print(f"domain B({weather_B}): ", len(trainB))
 
             print('##### data test end ######')
+
             # split data
-            # trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
-            # dump_pickle(trainA, self.dataset_path_trainA)
-            # dump_pickle(trainB, self.dataset_path_trainB)
-            # dump_pickle(testA, self.dataset_path_testA)
-            # dump_pickle(testB, self.dataset_path_testB)
+            trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
+            os.makedirs(os.path.dirname(self.dataset_path_trainA), exist_ok=True)
+            dump_pickle(trainA, self.dataset_path_trainA)
+            dump_pickle(trainB, self.dataset_path_trainB)
+            dump_pickle(testA, self.dataset_path_testA)
+            dump_pickle(testB, self.dataset_path_testB)
 
         print("data ready")
         print()
