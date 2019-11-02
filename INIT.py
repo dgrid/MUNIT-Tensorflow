@@ -11,7 +11,7 @@ from sklearn.model_selection import train_test_split
 
 from ops import *
 from utils import *
-from dataset import DatasetBuilder
+from dataset import DatasetBuilder, DebugDatasetBuilder
 
 
 class INIT(object) :
@@ -87,7 +87,11 @@ class INIT(object) :
         check_folder(self.sample_dir)
 
         self.data_set = args.dataset
-        self.dataset_builder = DatasetBuilder(args.data_folder)
+        if args.debug:
+            print("@@@@@@@@ Debug mode @@@@@@@@")
+            self.dataset_builder = DebugDatasetBuilder(self.batch_size)
+        else:
+            self.dataset_builder = DatasetBuilder(args.data_folder)
         self.dataset_num = self.dataset_builder.dataset_num
 
         print("##### Information #####")
@@ -305,7 +309,7 @@ class INIT(object) :
 
         return fake_A_logit, fake_B_logit
 
-        
+
     def build_model(self):
         self.lr = tf.placeholder(tf.float32, name='learning_rate')
 
@@ -353,13 +357,16 @@ class INIT(object) :
 
                     trainA_iterator = trainA.make_one_shot_iterator()
                     trainB_iterator = trainB.make_one_shot_iterator()
+                    """
+                    trainA_iterator, trainB_iterator = self.dataset_builder.build_dataset()
 
                     self.domain_A_all = trainA_iterator.get_next()
                     self.domain_B_all = trainB_iterator.get_next()
 
+                    # take global, background, and instance from dataset
                     self.domain_A = self.domain_A_all['global']
                     # randomly select one instance for each interation
-                    self.domain_a = self.domain_A_all['instances']
+                    self.domain_a = self.domain_A_all['instance']
                     print("#"*20, "test data format", "#"*20,)
                     print("domain a", type(self.domain_a))
                     print()
@@ -368,28 +375,11 @@ class INIT(object) :
 
                     self.domain_B = self.domain_B_all['global']
                     # randomly select one instance for each interation
-                    self.domain_b = self.domain_B_all['instances']
+                    self.domain_b = self.domain_B_all['instance']
                     # self.domain_b = random.sample*(self.domain_B_all['instances'], 1)
                     self.domain_b_bg = self.domain_B_all['background']
 
-                    """
-                     # temporary data for testing
-                    d_A = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
-                    d_B = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
-
-                    d_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, 3])
-                    d_b = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, 3])
-                    
-                    d_abg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
-                    d_bbg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
-
-                    self.domain_A = tf.cast(d_A, tf.float32)
-                    self.domain_B = tf.cast(d_B, tf.float32)
-                    self.domain_a = tf.cast(d_a, tf.float32)
-                    self.domain_b = tf.cast(d_b, tf.float32)
-                    self.domain_a_bg = tf.cast(d_abg, tf.float32)
-                    self.domain_b_bg = tf.cast(d_bbg, tf.float32)
-
+                    # import pdb; pdb.set_trace()
                     """ Define Encoder, Generator, Discriminator """
                     print()
                     print(" Define Encoder, Generator, Discriminator ")
@@ -410,7 +400,7 @@ class INIT(object) :
 
                     # instance encode
                     # print('instance shape ', self.domain_a.shape.as_list())
-                    c_a, s_a_prime = self.Encoder_A(self.domain_a) # 
+                    c_a, s_a_prime = self.Encoder_A(self.domain_a) #
                     c_b, s_b_prime = self.Encoder_B(self.domain_b) #
 
                     # decode (within domain)
@@ -564,7 +554,7 @@ class INIT(object) :
                     recon_c_a = L1_loss(c_a_, c_a) + L1_loss(c_a_o, c_a) + L1_loss(c_a_obg, c_a)
                     recon_c_b = L1_loss(c_b_, c_b) + L1_loss(c_b_o, c_b) + L1_loss(c_b_obg, c_b)
 
-                    # background 
+                    # background
                     # recon_c_a_bg = L1_loss(c_a_gbg, c_a_bg) + L1_loss()
                     # recon_c_b_bg = L1_loss() + L1_loss()
 

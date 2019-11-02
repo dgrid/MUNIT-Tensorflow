@@ -121,6 +121,7 @@ def parse_args():
     parser.add_argument('--dataset', type=str, default='INIT',
                         help='Directory name to save the samples on training')
     parser.add_argument('--data_folder', type=str, default='/home/user/share/dataset', help='dataset folder')
+    parser.add_argument('--debug', action='store_true', help='use random dataset for debugging')
 
     return check_args(parser.parse_args())
 
