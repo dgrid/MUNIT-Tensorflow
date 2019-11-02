@@ -59,7 +59,7 @@ def parse_args():
     parser.add_argument('--phase', type=str, default='train', help='train or test or guide')
     parser.add_argument('--model', type=str, default='INIT', help='which model to use')
     # parser.add_argument('--dataset', type=str, default='summer2winter', help='dataset_name')
-    parser.add_argument('--augment_flag', type=bool, default=False, help='Image augmentation use or not')
+    parser.add_argument('--augment_flag', action='store_true', help='Image augmentation use or not')
 
     # parser.add_argument('--epoch', type=int, default=10, help='The number of epochs to run')
     # parser.add_argument('--iteration', type=int, default=100000, help='The number of training iterations')

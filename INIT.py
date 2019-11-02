@@ -4,10 +4,7 @@ import pickle
 import random
 import time
 
-from tqdm import tqdm
 import tensorflow as tf
-from tensorflow.contrib.data import batch_and_drop_remainder, Dataset
-from sklearn.model_selection import train_test_split
 
 from ops import *
 from utils import *
@@ -91,7 +88,8 @@ class INIT(object) :
             print("@@@@@@@@ Debug mode @@@@@@@@")
             self.dataset_builder = DebugDatasetBuilder(self.batch_size)
         else:
-            self.dataset_builder = DatasetBuilder(args.data_folder)
+            Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
+            self.dataset_builder = DatasetBuilder(self.batch_size, args.data_folder, Image_Data_Class)
         self.dataset_num = self.dataset_builder.dataset_num
 
         print("##### Information #####")
@@ -322,43 +320,7 @@ class INIT(object) :
                     gpu_device = '/gpu:{}'.format(gpu_id)
 
                     """ Input Image"""
-                    """
-                    trainA, trainB = self.dataset_builder.build_dataset()
-
-                    # TODO: totally wrong
-                    Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
-                    self.dataset_builder.generator(trainA, Image_Data_Class)
-                    trainA_generator = partial(self.dataset_builder.generator, trainA, Image_Data_Class)
-                    trainB_generator = partial(self.dataset_builder.generator, trainB, Image_Data_Class)
-
-                    output_types = {
-                        'global': tf.float32,
-                        'background': tf.float32,
-                        'instances': tf.float32
-                    }
-                    output_shapes = {
-                        'global': tf.TensorShape(Image_Data_Class.get_image_shape()),
-                        'background': tf.TensorShape(Image_Data_Class.get_image_shape()),
-                        'instances': tf.TensorShape([None, ] + Image_Data_Class.get_object_shape()),
-                    }
-                    trainA = Dataset.from_generator(trainA_generator, output_types, output_shapes)
-                    trainB = Dataset.from_generator(trainB_generator, output_types, output_shapes)
-
-                    trainA = trainA.prefetch(self.batch_size) \
-                                .shuffle(self.dataset_num) \
-                                .apply(batch_and_drop_remainder(self.batch_size)) \
-                                .apply(prefetch_to_device(gpu_device, None)) \
-                                .repeat()
-                    trainB = trainB.prefetch(self.batch_size) \
-                                .shuffle(self.dataset_num) \
-                                .apply(batch_and_drop_remainder(self.batch_size)) \
-                                .apply(prefetch_to_device(gpu_device, None)) \
-                                .repeat()
-
-                    trainA_iterator = trainA.make_one_shot_iterator()
-                    trainB_iterator = trainB.make_one_shot_iterator()
-                    """
-                    trainA_iterator, trainB_iterator = self.dataset_builder.build_dataset()
+                    trainA_iterator, trainB_iterator = self.dataset_builder.build_dataset(gpu_device)
 
                     self.domain_A_all = trainA_iterator.get_next()
                     self.domain_B_all = trainB_iterator.get_next()
