@@ -22,14 +22,14 @@ Simple Tensorflow implementation of ["Multimodal Unsupervised Image-to-Image Tra
            ├── www.png
            └── ...
        ├── testA
-           ├── aaa.jpg 
+           ├── aaa.jpg
            ├── bbb.png
            └── ...
        └── testB
-           ├── ccc.jpg 
+           ├── ccc.jpg
            ├── ddd.png
            └── ...
-           
+
 ├── guide.jpg (example for guided image translation task)
 ```
 
@@ -39,13 +39,18 @@ Simple Tensorflow implementation of ["Multimodal Unsupervised Image-to-Image Tra
 ### Test
 * python main.py --phase test --dataset summer2winter --batch_size 1 --num_style 3
 
+### INIT
+```
+python3 main.py --data_folder /home/user/share/dataset-for-INIT --gpus 2 3
+```
+
 ### Guided Image Translation
 * python main.py --phase guide --dataset summer2winter --batch_size 1 --direction a2b --guide_img guide.jpg
 
 ## Summary
 ![illustration](./assests/method_illustration.png)
 
-## Architecture 
+## Architecture
 ![architecture](./assests/architecture.png)
 
 ## Model Overview

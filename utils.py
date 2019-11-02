@@ -22,12 +22,12 @@ class ImageData:
         self.obj_w = obj_w
 
     def get_image_shape(self):
-        # channels-first
-        return [self.channels, self.img_h, self.img_w]
+        # channels-last
+        return [self.img_h, self.img_w, self.channels]
 
     def get_object_shape(self):
-        # channels-first
-        return [self.channels, self.obj_h, self.obj_w]
+        # channels-last
+        return [self.obj_h, self.obj_w, self.channels]
 
     def image_processing(self, filename):
         x = tf.read_file(filename)
@@ -43,7 +43,7 @@ class ImageData:
                 img = augmentation(img, augment_size_h, augment_size_w)
 
         return img
-    
+
     def check_size(self, filename):
         # if the instance is larger than 60 * 60 pixels
         image = Image.open(filename)
@@ -62,7 +62,6 @@ class ImageData:
             img = tf.image.resize_images(x_decode, [height, width])
             img = tf.cast(img, tf.float32) / 127.5 - 1
         return img
-
 
     def image_resize(self, filename, resize=True, height=360, width=360):
         # the short side of image will be resized to 360 pixels
@@ -83,7 +82,7 @@ class ImageData:
 
         return {'global': global_image,
                 'background': background,
-                'instance': instance}
+                'instances': instance}
 
 
 def load_test_data(image_path, size_h=256, size_w=256):
