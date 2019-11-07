@@ -5,16 +5,20 @@ from functools import partial
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.data import Dataset, Iterator
+Dataset = tf.data.Dataset
+Iterator = tf.data.Iterator
 from tensorflow.contrib.data import batch_and_drop_remainder
-from tensorflow.data.experimental import prefetch_to_device
+from tensorflow.contrib.data import prefetch_to_device
 from sklearn.model_selection import train_test_split
 
 from utils import load_pickle, dump_pickle, get_files, ImageData
 
 class DatasetBuilder:
 
-    def __init__(self, batch_size, data_folder='/home/user/share/data', image_data_processor=None):
+    def __init__(self, batch_size, data_folder='/home/user/share/dataset', image_data_processor=None):
+        print('#######################')
+        print('dataset initialization')
+        print('#######################')
         self.batch_size = batch_size
         self.data_folder = data_folder
         self.image_data_processor = image_data_processor
@@ -29,12 +33,12 @@ class DatasetBuilder:
         self._build_dataset()
 
     def _build_dataset(self):
+        print('dataset._build_dataset')
         """
         return dataset, if precomputed pkl is not found, dump it.
         """
         print("_"*20)
         print()
-        print("start to process data")
         print('##### test info #####')
         if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainB) and os.path.exists(self.dataset_path_testA) and os.path.exists(self.dataset_path_testB):
             trainA = load_pickle(self.dataset_path_trainA)
@@ -47,7 +51,7 @@ class DatasetBuilder:
                 if weather in folder_name:
                     weather_list.append(weather)
             if len(weather_list) != 2:
-                raise ValueError(f"prepare two domains in {self.data_folder}: {weather_list}")
+                raise ValueError("prepare two domains in {self.data_folder}: {weather_list}")
             weather_A, weather_B = weather_list
 
             # load images from weather_a and weather_B
@@ -69,13 +73,16 @@ class DatasetBuilder:
             # shuffle datum
             random.shuffle(trainA)
             random.shuffle(trainB)
-            print(f"domain A({weather_A}): ", len(trainA))
-            print(f"domain B({weather_B}): ", len(trainB))
+            print("domain A({weather_A}): ", len(trainA))
+            print("domain B({weather_B}): ", len(trainB))
 
             print('##### data test end ######')
 
             # split data
-            trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
+            # trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
+            # function train_test_split() requires the trainA and trainB have the same amount of data
+            trainA, testA = self.split(trainA, test_size=0.2)
+            trainB, testB = self.split(trainB, test_size=0.2)
             os.makedirs(os.path.dirname(self.dataset_path_trainA), exist_ok=True)
             dump_pickle(trainA, self.dataset_path_trainA)
             dump_pickle(trainB, self.dataset_path_trainB)
@@ -83,46 +90,66 @@ class DatasetBuilder:
             dump_pickle(testB, self.dataset_path_testB)
 
         print("data ready")
-        print()
 
         self._trainA = trainA
         self._trainB = trainB
         self._dataset_num = max(len(trainA), len(trainB))
 
+    def split(self, data, test_size=0.2):
+        print('dataset.split dataset')
+        # split data into training and testing set
+        assert len(data) > 1
+        train = []
+        test = []
+        for item in data:
+            if random.random() >= test_size:
+                train.append(item)
+            else:
+                test.append(item)
+        return train, test
+    
     def build_dataset(self, gpu_device):
-        generator_A = partial(self.generator, dataset=self._trainA, image_data_processor=self.image_data_processor)
-        generator_B = partial(self.generator, dataset=self._trainB, image_data_processor=self.image_data_processor)
+        print('*' * 30)
+        print('dataset.dataset_builder.build dataset')
+
+        generator_A = partial(self.generator, dataset=self._trainA)
+        generator_B = partial(self.generator, dataset=self._trainB)
 
         # Dataset for Dataset Iterator
         output_types = {
             'global': tf.float32,
-            'instance': tf.float32,
-            'background': tf.float32,
+            'instance': tf.float32
+            # ,
+            # 'background': tf.float32,
         }
         # output shapes without batch
         output_shapes = {
             'global': self.image_data_processor.get_image_shape(),
-            'background': self.image_data_processor.get_image_shape(),
+            # 'background': self.image_data_processor.get_image_shape(),
             'instance': self.image_data_processor.get_object_shape()
         }
+        print('start to generate line 130')
         dataset_A = Dataset.from_generator(generator_A, output_types, output_shapes)
         dataset_B = Dataset.from_generator(generator_B, output_types, output_shapes)
 
+        print('prefech')
         dataset_A = dataset_A.prefetch(self.batch_size) \
                     .shuffle(self.dataset_num) \
                     .apply(batch_and_drop_remainder(self.batch_size)) \
-                    .apply(prefetch_to_device(gpu_device, None)) \
-                    .repeat()
+                    .repeat() \
+                    .apply(prefetch_to_device(gpu_device, None))
+                    
         dataset_B = dataset_B.prefetch(self.batch_size) \
                     .shuffle(self.dataset_num) \
                     .apply(batch_and_drop_remainder(self.batch_size)) \
-                    .apply(prefetch_to_device(gpu_device, None)) \
-                    .repeat()
+                    .repeat() \
+                    .apply(prefetch_to_device(gpu_device, None))
 
         # Iterator
+        print('dataset.guild_dataset.iterator')
         trainA_iterator = dataset_A.make_one_shot_iterator()
         trainB_iterator = dataset_B.make_one_shot_iterator()
-
+        print('dataset.guild_dataset.return')
         return trainA_iterator, trainB_iterator
 
     @property
@@ -130,19 +157,27 @@ class DatasetBuilder:
         return self._dataset_num
 
     def generator(self, dataset):
+        print('%' * 50)
+        print('in generator')
         for data in dataset:
+            print('for data in dataset')
             # TODO: do parallel
+            print('dataset.generator.processed')
             processed = self.image_data_processor.processing(data)
 
             # randomly select one instance for each interation
-            one_instance = random.sample(processed['instances'], 1)
+            # one_instance = random.sample(processed['instance'], 1)
 
+            print('gens')
             gens = {
                 'global': processed['global'],
-                'background': processed['background'],
-                'instances': one_instance
+                'instance': processed['instance']
+                # 'background': processed['background'],
+                # 'instance': one_instance
             }
+            print('^^^^^^^^^^^')
             yield gens
+        print('dataset.generator.end')
 
 
 class DebugDatasetBuilder:
@@ -163,13 +198,15 @@ class DebugDatasetBuilder:
         # generators for Dataest
         domain_A_all = {
             'global': tf.cast(d_A, tf.float32),
-            'instance': tf.cast(d_a, tf.float32),
-            'background': tf.cast(d_abg, tf.float32),
+            'instance': tf.cast(d_a, tf.float32)
+            # ,
+            # 'background': tf.cast(d_abg, tf.float32),
         }
         domain_B_all = {
             'global': tf.cast(d_B, tf.float32),
-            'instance': tf.cast(d_b, tf.float32),
-            'background': tf.cast(d_bbg, tf.float32),
+            'instance': tf.cast(d_b, tf.float32)
+            # ,
+            # 'background': tf.cast(d_bbg, tf.float32),
         }
         generator_A = partial(self.generator, domain=domain_A_all)
         generator_B = partial(self.generator, domain=domain_B_all)
@@ -177,13 +214,14 @@ class DebugDatasetBuilder:
         # Dataset for Dataset Iterator
         output_types = {
             'global': tf.float32,
-            'instance': tf.float32,
-            'background': tf.float32,
+            'instance': tf.float32
+            # ,
+            # 'background': tf.float32,
         }
         output_shapes = {
             'global': tf.TensorShape((self.batch_size, 360, 360, 3)),
-            'background': tf.TensorShape((self.batch_size, 120, 120, 3)),
-            'instance': tf.TensorShape((self.batch_size, 360, 360, 3)),
+            # 'background': tf.TensorShape((self.batch_size, 120, 120, 3)),
+            'instance': tf.TensorShape((self.batch_size, 120, 120, 3)),
         }
         dataset_A = Dataset.from_generator(generator_A, output_types, output_shapes)
         dataset_B = Dataset.from_generator(generator_B, output_types, output_shapes)
