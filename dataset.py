@@ -16,9 +16,6 @@ from utils import load_pickle, dump_pickle, get_files, ImageData
 class DatasetBuilder:
 
     def __init__(self, batch_size, data_folder='/home/user/share/dataset', image_data_processor=None):
-        print('#######################')
-        print('dataset initialization')
-        print('#######################')
         self.batch_size = batch_size
         self.data_folder = data_folder
         self.image_data_processor = image_data_processor
@@ -37,9 +34,6 @@ class DatasetBuilder:
         """
         return dataset, if precomputed pkl is not found, dump it.
         """
-        print("_"*20)
-        print()
-        print('##### test info #####')
         if os.path.exists(self.dataset_path_trainA) and os.path.exists(self.dataset_path_trainB) and os.path.exists(self.dataset_path_testA) and os.path.exists(self.dataset_path_testB):
             trainA = load_pickle(self.dataset_path_trainA)
             trainB = load_pickle(self.dataset_path_trainB)
@@ -76,8 +70,6 @@ class DatasetBuilder:
             print("domain A({weather_A}): ", len(trainA))
             print("domain B({weather_B}): ", len(trainB))
 
-            print('##### data test end ######')
-
             # split data
             # trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
             # function train_test_split() requires the trainA and trainB have the same amount of data
@@ -88,8 +80,6 @@ class DatasetBuilder:
             dump_pickle(trainB, self.dataset_path_trainB)
             dump_pickle(testA, self.dataset_path_testA)
             dump_pickle(testB, self.dataset_path_testB)
-
-        print("data ready")
 
         self._trainA = trainA
         self._trainB = trainB
@@ -165,15 +155,19 @@ class DatasetBuilder:
             print('dataset.generator.processed')
             processed = self.image_data_processor.processing(data)
 
-            # randomly select one instance for each interation
-            # one_instance = random.sample(processed['instance'], 1)
+            print('processed type     : ', type(processed))
+            print('processed global   : ', type(processed['global']), processed['global'].shape)
+            print('processed instance : ', type(processed['instance']), processed['instance'][0].shape)
 
-            print('gens')
+            # randomly select one instance for each interation
+            one_instance = random.sample(processed['instance'], 1)
+
+            # print('gens')
             gens = {
                 'global': processed['global'],
-                'instance': processed['instance']
+                # 'instance': processed['instance']
                 # 'background': processed['background'],
-                # 'instance': one_instance
+                'instance': one_instance
             }
             print('^^^^^^^^^^^')
             yield gens
@@ -219,12 +213,12 @@ class DebugDatasetBuilder:
             # 'background': tf.float32,
         }
         output_shapes = {
-            'global': tf.TensorShape((self.batch_size, 360, 360, 3)),
+            'global': tf.TensorShape([self.batch_size, 360, 360, 3]),
             # 'background': tf.TensorShape((self.batch_size, 120, 120, 3)),
-            'instance': tf.TensorShape((self.batch_size, 120, 120, 3)),
+            'instance': tf.TensorShape([self.batch_size, 120, 120, 3]),
         }
-        dataset_A = Dataset.from_generator(generator_A, output_types, output_shapes)
-        dataset_B = Dataset.from_generator(generator_B, output_types, output_shapes)
+        dataset_A = Dataset.from_generator(generator_A, (output_types), (output_shapes))
+        dataset_B = Dataset.from_generator(generator_B, (output_types), (output_shapes))
 
         # Iterator
         trainA_iterator = dataset_A.make_one_shot_iterator()

@@ -322,7 +322,6 @@ class INIT(object) :
             with tf.device(tf.DeviceSpec(device_type="GPU", device_index=gpu_id)):
                 with tf.variable_scope(tf.get_variable_scope(), reuse=(gpu_id > 0)):
                     gpu_device = '/gpu:{}'.format(gpu_id)
-                    print(type(gpu_id))
 
                     """ Input Image"""
                     trainA_iterator, trainB_iterator = self.dataset_builder.build_dataset(gpu_device)
@@ -682,7 +681,7 @@ class INIT(object) :
         for epoch in range(start_epoch, self.epoch):
 
             print()
-            print(epoch)
+            print('epoch : ', epoch)
             print('#' * 20, 'debug info', '#' * 20)
 
             lr = self.init_lr * pow(0.5, epoch)
@@ -716,8 +715,6 @@ class INIT(object) :
 
                 try:
                     print('updating G')
-                    print(self.Discriminator_loss)
-                    print(self.D_loss)
                     _, d_loss, summary_str = self.sess.run([self.D_optim, self.Discriminator_loss, self.D_loss], feed_dict = train_feed_dict)
                 except ValueError:
                     print()

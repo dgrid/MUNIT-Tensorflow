@@ -187,7 +187,7 @@ def main():
         print('#######################')
 
         # show network architecture
-        show_all_variables()
+        # show_all_variables()
 
         if args.phase == 'train' :
             # launch the graph in a session
