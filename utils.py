@@ -93,6 +93,59 @@ class ImageData:
                 'instance': one_instance}
 
 
+class NumpyImageData:
+
+    def __init__(self, img_h, img_w, channels, augment_flag=False, obj_h=120, obj_w=120):
+        self.img_h = img_h
+        self.img_w = img_w
+        self.channels = channels
+        self.augment_flag = augment_flag
+
+        # objects
+        self.obj_h = obj_h
+        self.obj_w = obj_w
+
+    def get_image_shape(self):
+        # channels-last
+        return [self.img_h, self.img_w, self.channels]
+
+    def get_object_shape(self):
+        # channels-last
+        return [self.obj_h, self.obj_w, self.channels]
+
+    def object_resize(self, filename):
+        # object will be resized to 120*120 pixels
+        img = Image.open(filename)
+        img = img.resize([self.obj_h, self.obj_w])
+        img = np.array(img) / 127.5 - 1
+        return img
+
+    def image_resize(self, filename, resize=True):
+        img = Image.open(filename)
+        if resize:
+            img = img.resize([self.img_h, self.img_w])
+        img = np.array(img) / 127.5 - 1
+        return img
+
+    def processing(self, file_dict):
+        global_image = self.image_resize(file_dict['global'])
+        instances = []
+        for file_path in file_dict['instance']:
+            instances.append(self.object_resize(file_path))
+
+        # background = self.image_resize(file_dict['background'])
+        assert(len(instances) > 0)
+
+        # randomly select one instance for each interation
+        one_instance = random.sample(instances, 1)[0]
+
+        assert(tuple(global_image.shape) == (self.img_h, self.img_w, self.channels))
+        assert(tuple(one_instance.shape) == (self.obj_h, self.obj_w, self.channels))
+
+        return {'global': global_image,
+                'instance': one_instance}
+
+
 def load_test_data(image_path, size_h=256, size_w=256):
     img = misc.imread(image_path, mode='RGB')
     img = misc.imresize(img, [size_h, size_w])

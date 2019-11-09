@@ -83,14 +83,14 @@ def parse_args():
 
     parser.add_argument('--lr', type=float, default=0.0001, help='The learning rate')
     parser.add_argument('--gan_w', type=float, default=1.0, help='weight of adversarial loss')
-    parser.add_argument('--recon_x_w', type=float, default=10.0, help='weight of image reconstruction loss')
+    parser.add_argument('--recon_x_w', type=float, default=1.0, help='weight of image reconstruction loss')
     parser.add_argument('--recon_s_w', type=float, default=1.0, help='weight of style reconstruction loss')
     parser.add_argument('--recon_c_w', type=float, default=1.0, help='weight of content reconstruction loss')
     parser.add_argument('--recon_x_cyc_w', type=float, default=0.0,
                         help='weight of explicit style augmented cycle consistency loss')
 
     parser.add_argument('--gan_o_w', type=float, default=1.0, help='weight of adversarial loss')
-    parser.add_argument('--recon_o_w', type=float, default=10.0, help='weight of image reconstruction loss-instance')
+    parser.add_argument('--recon_o_w', type=float, default=1.0, help='weight of image reconstruction loss-instance')
     parser.add_argument('--recon_o_s_w', type=float, default=1.0, help='weight of style reconstruction loss-instance')
     parser.add_argument('--recon_o_c_w', type=float, default=1.0, help='weight of content reconstruction loss-instance')
     parser.add_argument('--recon_o_cyc_w', type=float, default=0.0,

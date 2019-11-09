@@ -89,7 +89,7 @@ class INIT(object) :
             print("@@@@@@@@ Debug mode @@@@@@@@")
             self.dataset_builder = DebugDatasetBuilder(self.batch_size)
         else:
-            Image_Data_Class = ImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
+            Image_Data_Class = NumpyImageData(self.img_h, self.img_w, self.img_ch, self.augment_flag)
             self.dataset_builder = DatasetBuilder(self.batch_size, args.data_folder, Image_Data_Class)
         self.dataset_num = self.dataset_builder.dataset_num
 
