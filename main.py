@@ -123,7 +123,7 @@ def parse_args():
     parser.add_argument('--data_folder', type=str, default='/home/user/share/dataset', help='dataset folder')
     parser.add_argument('--debug', action='store_true', help='use random dataset for debugging')
 
-    parser.add_argument('--gpus', type=str, nargs='*', default=['2'], help='gpu devices')
+    parser.add_argument('--gpus', type=str, nargs='*', default=['0'], help='gpu devices')
 
     return check_args(parser.parse_args())
 
@@ -167,7 +167,7 @@ def main():
     # allocate dynamically
     os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(args.gpus)  # use GPU with ID=0
     config = tf.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 0.5 # maximun alloc gpu50% of MEM
+    config.gpu_options.per_process_gpu_memory_fraction = 0.4 # maximun alloc gpu50% of MEM
     config.gpu_options.allow_growth = True
 
     # open session

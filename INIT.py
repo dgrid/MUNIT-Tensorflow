@@ -4,7 +4,9 @@ import pickle
 import random
 import time
 
+import numpy as np
 import tensorflow as tf
+from tensorflow.python import debug as tf_debug
 
 from ops import *
 from utils import *
@@ -45,8 +47,7 @@ class INIT(object) :
 
         # list of GUP ids
         # for multi-GPUs training
-        # self.gpu_list = args.gpu_list
-        self.gpu_list = [2, 3]
+        self.gpu_list = list(map(int, args.gpus))
         self.gpu_num = len(self.gpu_list)
         self.batch_size = get_bacth_size(self.all_batch_size, self.gpu_num)
 
@@ -332,16 +333,14 @@ class INIT(object) :
                     print("#"*20, "test data format", "#"*20,)
                     print("domain a", type(self.domain_a))
                     print()
-                    # self.domain_a = random.sample(self.domain_A_all['instances'], 1)
-                    self.domain_a_bg = self.domain_A_all['background']
+                    # ignore background to speed up training
+                    # self.domain_a_bg = self.domain_A_all['background']
 
                     self.domain_B = self.domain_B_all['global']
                     # randomly select one instance for each interation
                     self.domain_b = self.domain_B_all['instance']
-                    # self.domain_b = random.sample*(self.domain_B_all['instances'], 1)
-                    self.domain_b_bg = self.domain_B_all['background']
+                    # self.domain_b_bg = self.domain_B_all['background']
 
-                    # import pdb; pdb.set_trace()
                     """ Define Encoder, Generator, Discriminator """
                     print()
                     print(" Define Encoder, Generator, Discriminator ")
@@ -357,8 +356,8 @@ class INIT(object) :
 
                     # encode (background)
                     # print('global shape ', self.domain_A.shape.as_list())
-                    c_a_bg, s_a_bg_prime = self.Encoder_A(self.domain_a_bg, reuse=True)
-                    c_b_bg, s_b_bg_prime = self.Encoder_B(self.domain_b_bg, reuse=True)
+                    # c_a_bg, s_a_bg_prime = self.Encoder_A(self.domain_a_bg, reuse=True)
+                    # c_b_bg, s_b_bg_prime = self.Encoder_B(self.domain_b_bg, reuse=True)
 
                     # instance encode
                     # print('instance shape ', self.domain_a.shape.as_list())
@@ -384,8 +383,8 @@ class INIT(object) :
                     # decode (cross granularity)
                     x_Aa = self.Decoder_A(content_B=c_a, style_A=style_a_prime, reuse=True) #
                     x_Bb = self.Decoder_B(content_A=c_b, style_B=style_b_prime, reuse=True) #
-                    x_Aa_bg = self.Decoder_A(content_B=c_a, style_A=s_a_bg_prime, reuse=True) #
-                    x_Bb_bg = self.Decoder_B(content_A=c_b, style_B=s_b_bg_prime, reuse=True) #
+                    # x_Aa_bg = self.Decoder_A(content_B=c_a, style_A=s_a_bg_prime, reuse=True) #
+                    # x_Bb_bg = self.Decoder_B(content_A=c_b, style_B=s_b_bg_prime, reuse=True) #
 
 
                     # encode again
@@ -399,12 +398,12 @@ class INIT(object) :
                     c_a_o, s_a_g = self.Encoder_A(x_Aa, reuse=True) #
                     c_b_o, s_b_g = self.Encoder_B(x_Bb, reuse=True) #
                     # cross granularity (instance & background)
-                    c_a_obg, s_a_bg = self.Encoder_A(x_Aa_bg, reuse=True) #
-                    c_b_obg, s_b_bg = self.Encoder_B(x_Bb_bg, reuse=True) #
+                    # c_a_obg, s_a_bg = self.Encoder_A(x_Aa_bg, reuse=True) #
+                    # c_b_obg, s_b_bg = self.Encoder_B(x_Bb_bg, reuse=True) #
 
                     # cross granularity (global & background)
-                    c_a_gbg, s_a_g2 = self.Encoder_A(x_Aa_bg, reuse=True) #
-                    c_b_gbg, s_b_g2 = self.Encoder_B(x_Bb_bg, reuse=True) #
+                    # c_a_gbg, s_a_g2 = self.Encoder_A(x_Aa_bg, reuse=True) #
+                    # c_b_gbg, s_b_g2 = self.Encoder_B(x_Bb_bg, reuse=True) #
 
 
                     # decode again (if needed)
@@ -418,8 +417,8 @@ class INIT(object) :
                         x_aba_og = self.Decoder_A(content_B=c_a_o, style_A=s_a_prime) #
                         x_bab_og = self.Decoder_B(content_A=c_b_o, style_B=s_b_prime) #
 
-                        x_aba_ob = self.Decoder_A(content_B=c_a_o, style_A=s_a_bg_prime) #
-                        x_bab_ob = self.Decoder_B(content_A=c_b_o, style_B=s_b_bg_prime) #
+                        # x_aba_ob = self.Decoder_A(content_B=c_a_o, style_A=s_a_bg_prime) #
+                        # x_bab_ob = self.Decoder_B(content_A=c_b_o, style_B=s_b_bg_prime) #
 
                         cyc_recon_A = L1_loss(x_aba, self.domain_A)
                         cyc_recon_B = L1_loss(x_bab, self.domain_B)
@@ -430,8 +429,8 @@ class INIT(object) :
                         cyc_recon_ag = L1_loss(x_aba_og, self.domain_a)
                         cyc_recon_bg = L1_loss(x_bab_og, self.domain_b)
 
-                        cyc_recon_ab = L1_loss(x_aba_ob, self.domain_a)
-                        cyc_recon_bb = L1_loss(x_bab_ob, self.domain_b)
+                        # cyc_recon_ab = L1_loss(x_aba_ob, self.domain_a)
+                        # cyc_recon_bb = L1_loss(x_bab_ob, self.domain_b)
 
                     else :
                         cyc_recon_A = 0.0
@@ -440,8 +439,9 @@ class INIT(object) :
                         cyc_recon_b = 0.0
                         cyc_recon_ag = 0.0
                         cyc_recon_bg = 0.0
-                        cyc_recon_ab = 0.0
-                        cyc_recon_bb = 0.0
+                        # for background
+                        # cyc_recon_ab = 0.0
+                        # cyc_recon_bb = 0.0
 
                     real_A_logit, real_B_logit = self.discriminate_real(self.domain_A, self.domain_B, reuse=tf.AUTO_REUSE)
                     fake_A_logit, fake_B_logit = self.discriminate_fake(x_ba, x_ab, reuse=True)
@@ -452,7 +452,7 @@ class INIT(object) :
                     # real_ag_logit, real_bg_logit = self.discriminate_real(self)
                     fake_ag_logit, fake_bg_logit = self.discriminate_fake(x_Aa, x_Bb, reuse=True)
                     # instance (cross granularity: background)
-                    fake_abg_logit, fake_bbg_logit = self.discriminate_fake(x_Aa_bg, x_Bb_bg, reuse=True)
+                    # fake_abg_logit, fake_bbg_logit = self.discriminate_fake(x_Aa_bg, x_Bb_bg, reuse=True)
 
                     """ Define Loss """
                     print(" Define Loss ")
@@ -467,11 +467,11 @@ class INIT(object) :
                     G_ad_loss_ag = generator_loss(self.gan_type, fake_ag_logit)
                     G_ad_loss_bg = generator_loss(self.gan_type, fake_bg_logit)
                     # instance & background
-                    G_ad_loss_abg = generator_loss(self.gan_type, fake_abg_logit)
-                    G_ad_loss_bbg = generator_loss(self.gan_type, fake_bbg_logit)
+                    # G_ad_loss_abg = generator_loss(self.gan_type, fake_abg_logit)
+                    # G_ad_loss_bbg = generator_loss(self.gan_type, fake_bbg_logit)
 
-                    G_ad_loss_ao = G_ad_loss_a_o + G_ad_loss_ag + G_ad_loss_abg
-                    G_ad_loss_bo = G_ad_loss_b_o + G_ad_loss_bg + G_ad_loss_bbg
+                    G_ad_loss_ao = G_ad_loss_a_o + G_ad_loss_ag  # + G_ad_loss_abg
+                    G_ad_loss_bo = G_ad_loss_b_o + G_ad_loss_bg  # + G_ad_loss_bbg
 
                     D_ad_loss_a = discriminator_loss(self.gan_type, real_A_logit, fake_A_logit)
                     D_ad_loss_b = discriminator_loss(self.gan_type, real_B_logit, fake_B_logit)
@@ -495,8 +495,8 @@ class INIT(object) :
                     # The style reconstruction loss encourages
                     # diverse outputs given different style codes
                     # global
-                    recon_style_A = L1_loss(style_a_, self.style_a) + L1_loss(s_a_g, self.style_a) + L1_loss(s_a_g2, self.style_a)
-                    recon_style_B = L1_loss(style_b_, self.style_b) + L1_loss(s_b_g, self.style_b) + L1_loss(s_b_g2, self.style_b)
+                    recon_style_A = L1_loss(style_a_, self.style_a) + L1_loss(s_a_g, self.style_a)  # + L1_loss(s_a_g2, self.style_a)
+                    recon_style_B = L1_loss(style_b_, self.style_b) + L1_loss(s_b_g, self.style_b)  # + L1_loss(s_b_g2, self.style_b)
 
                     # instance
                     recon_s_a = L1_loss(s_a_, self.style_ao)
@@ -513,8 +513,8 @@ class INIT(object) :
 
                     # instance
                     # recon from cross domain
-                    recon_c_a = L1_loss(c_a_, c_a) + L1_loss(c_a_o, c_a) + L1_loss(c_a_obg, c_a)
-                    recon_c_b = L1_loss(c_b_, c_b) + L1_loss(c_b_o, c_b) + L1_loss(c_b_obg, c_b)
+                    recon_c_a = L1_loss(c_a_, c_a) + L1_loss(c_a_o, c_a)  # + L1_loss(c_a_obg, c_a)
+                    recon_c_b = L1_loss(c_b_, c_b) + L1_loss(c_b_o, c_b)  # + L1_loss(c_b_obg, c_b)
 
                     # background
                     # recon_c_a_bg = L1_loss(c_a_gbg, c_a_bg) + L1_loss()
@@ -540,8 +540,8 @@ class INIT(object) :
                                     self.recon_o_c_w * recon_c_a + \
                                     self.recon_o_cyc_w * cyc_recon_a + \
                                     self.recon_o_cyc_w * cyc_recon_a + \
-                                    self.recon_o_cyc_w * cyc_recon_ab + \
                                     self.recon_o_cyc_w * cyc_recon_ag
+                                    # self.recon_o_cyc_w * cyc_recon_ab + \
 
                     Generator_b_loss = self.gan_o_w * G_ad_loss_bo + \
                                     self.recon_o_w * recon_b + \
@@ -549,8 +549,8 @@ class INIT(object) :
                                     self.recon_o_c_w * recon_c_b + \
                                     self.recon_o_cyc_w * cyc_recon_b + \
                                     self.recon_o_cyc_w * cyc_recon_b + \
-                                    self.recon_o_cyc_w * cyc_recon_bb + \
                                     self.recon_o_cyc_w * cyc_recon_bg
+                                    # self.recon_o_cyc_w * cyc_recon_bb + \
 
                     Discriminator_A_loss = self.gan_w * D_ad_loss_a + self.gan_o_w * D_ad_loss_ao
                     Discriminator_B_loss = self.gan_w * D_ad_loss_b + self.gan_o_w * D_ad_loss_bo
@@ -678,22 +678,30 @@ class INIT(object) :
             for idx in range(start_batch_id, self.iteration):
                 style_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
                 style_b = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
-                style_oa = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
-                style_ob = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
+                style_ao = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
+                style_bo = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
 
                 train_feed_dict = {
                     self.style_a : style_a,
                     self.style_b : style_b,
-                    self.style_ao : style_oa,
-                    self.style_bo : style_ob,
+                    self.style_ao : style_ao,
+                    self.style_bo : style_bo,
                     self.lr : lr
                 }
+                assert(tuple(style_a.shape) == (self.batch_size, 1, 1, self.style_dim))
+                assert(tuple(style_b.shape) == (self.batch_size, 1, 1, self.style_dim))
+                assert(tuple(style_ao.shape) == (self.batch_size, 1, 1, self.style_dim))
+                assert(tuple(style_bo.shape) == (self.batch_size, 1, 1, self.style_dim))
 
                 # Update D
+                print("Update D")
+                # self.sess = tf_debug.LocalCLIDebugWrapperSession(self.sess)
+                # self.sess.add_tensor_filter('has_inf_or_nan', tf_debug.has_inf_or_nan)
                 _, d_loss, summary_str = self.sess.run([self.D_optim, self.Discriminator_loss, self.D_loss], feed_dict = train_feed_dict)
                 self.writer.add_summary(summary_str, counter)
 
                 # Update G
+                print("Update G")
                 batch_A_images, batch_B_images, batch_A_instances, batch_B_instances, fake_A, fake_B, fake_a, fake_b, _, g_loss, summary_str = \
                     self.sess.run([self.real_A, self.real_B, self.real_a, self.real_b, self.fake_A, self.fake_B, self.fake_a, self.fake_b, self.G_optim, self.Generator_loss, self.G_loss], feed_dict = train_feed_dict)
                 self.writer.add_summary(summary_str, counter)

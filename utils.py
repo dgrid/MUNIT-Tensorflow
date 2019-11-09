@@ -52,15 +52,13 @@ class ImageData:
         else:
             return False
 
-    def object_resize(self, filename):
-    # object will be resized to 120*120 pixels
-        ifuse = check_size(filename)
-        if ifuse:
-            x = tf.read_file(filename)
-            x_decode = tf.image.decode_png(x, channels=self.channels)
-
-            img = tf.image.resize_images(x_decode, [height, width])
-            img = tf.cast(img, tf.float32) / 127.5 - 1
+    def object_resize(self, filename, height=120, width=120):
+        # object will be resized to 120*120 pixels
+        x = tf.read_file(filename)
+        x_decode = tf.image.decode_png(x, channels=self.channels)
+        img = tf.image.resize_images(x_decode, [height, width])
+        img = tf.cast(img, tf.float32) / 127.5 - 1
+        assert img.shape.as_list() == [120, 120, 3]
         return img
 
     def image_resize(self, filename, resize=True, height=360, width=360):
@@ -71,18 +69,28 @@ class ImageData:
         if resize:
             img = tf.image.resize_images(img, [height, width])
         img = tf.cast(img, tf.float32) / 127.5 - 1
+        assert img.shape.as_list() == [360, 360, 3]
         return img
 
     def processing(self, file):
         global_image = self.image_resize(file['global'])
-        instance = []
+        instances = []
         for file_path in file['instance']:
-            instance.append(self.object_resize(file_path))
-        background = self.image_resize(file['background'])
+            # TODO: check if an instance is larger than 60x60 ?
+            instances.append(self.object_resize(file_path))
+
+        # background = self.image_resize(file['background'])
+        assert(len(instances) > 0)
+
+        # randomly select one instance for each interation
+        one_instance = random.sample(instances, 1)[0]
+
+        assert(tuple(global_image.shape) == (360, 360, 3))
+        assert(tuple(one_instance.shape) == (120, 120, 3))
 
         return {'global': global_image,
-                'background': background,
-                'instances': instance}
+                # 'background': background,
+                'instance': one_instance}
 
 
 def load_test_data(image_path, size_h=256, size_w=256):

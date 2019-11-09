@@ -5,9 +5,8 @@ from functools import partial
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.data import Dataset, Iterator
 from tensorflow.contrib.data import batch_and_drop_remainder
-from tensorflow.data.experimental import prefetch_to_device
+from tensorflow.contrib.data import prefetch_to_device
 from sklearn.model_selection import train_test_split
 
 from utils import load_pickle, dump_pickle, get_files, ImageData
@@ -90,34 +89,34 @@ class DatasetBuilder:
         self._dataset_num = max(len(trainA), len(trainB))
 
     def build_dataset(self, gpu_device):
-        generator_A = partial(self.generator, dataset=self._trainA, image_data_processor=self.image_data_processor)
-        generator_B = partial(self.generator, dataset=self._trainB, image_data_processor=self.image_data_processor)
+        generator_A = partial(self.generator, dataset=self._trainA)
+        generator_B = partial(self.generator, dataset=self._trainB)
 
         # Dataset for Dataset Iterator
         output_types = {
             'global': tf.float32,
             'instance': tf.float32,
-            'background': tf.float32,
+            # 'background': tf.float32,
         }
         # output shapes without batch
         output_shapes = {
             'global': self.image_data_processor.get_image_shape(),
-            'background': self.image_data_processor.get_image_shape(),
+            # 'background': self.image_data_processor.get_image_shape(),
             'instance': self.image_data_processor.get_object_shape()
         }
-        dataset_A = Dataset.from_generator(generator_A, output_types, output_shapes)
-        dataset_B = Dataset.from_generator(generator_B, output_types, output_shapes)
+        dataset_A = tf.data.Dataset.from_generator(generator_A, output_types, output_shapes)
+        dataset_B = tf.data.Dataset.from_generator(generator_B, output_types, output_shapes)
 
         dataset_A = dataset_A.prefetch(self.batch_size) \
                     .shuffle(self.dataset_num) \
                     .apply(batch_and_drop_remainder(self.batch_size)) \
-                    .apply(prefetch_to_device(gpu_device, None)) \
-                    .repeat()
+                    .repeat() \
+                    .apply(prefetch_to_device(gpu_device, None))
         dataset_B = dataset_B.prefetch(self.batch_size) \
                     .shuffle(self.dataset_num) \
                     .apply(batch_and_drop_remainder(self.batch_size)) \
-                    .apply(prefetch_to_device(gpu_device, None)) \
-                    .repeat()
+                    .repeat() \
+                    .apply(prefetch_to_device(gpu_device, None))
 
         # Iterator
         trainA_iterator = dataset_A.make_one_shot_iterator()
@@ -134,13 +133,10 @@ class DatasetBuilder:
             # TODO: do parallel
             processed = self.image_data_processor.processing(data)
 
-            # randomly select one instance for each interation
-            one_instance = random.sample(processed['instances'], 1)
-
             gens = {
                 'global': processed['global'],
-                'background': processed['background'],
-                'instances': one_instance
+                # 'background': processed['background'],
+                'instance': processed['instance']
             }
             yield gens
 
@@ -150,26 +146,26 @@ class DebugDatasetBuilder:
     def __init__(self, batch_size):
         self.batch_size = batch_size
 
-    def build_dataset(self, gpu_device) -> Tuple[Iterator, Iterator]:
-        d_A = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
-        d_B = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
+    def build_dataset(self, gpu_device) -> Tuple[tf.data.Iterator, tf.data.Iterator]:
+        d_A = np.random.normal(loc=0.0, scale=1.0, size=[360, 360, 3])
+        d_B = np.random.normal(loc=0.0, scale=1.0, size=[360, 360, 3])
 
-        d_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, 3])
-        d_b = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 120, 120, 3])
+        d_a = np.random.normal(loc=0.0, scale=1.0, size=[120, 120, 3])
+        d_b = np.random.normal(loc=0.0, scale=1.0, size=[120, 120, 3])
 
-        d_abg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
-        d_bbg = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 360, 360, 3])
+        d_abg = np.random.normal(loc=0.0, scale=1.0, size=[360, 360, 3])
+        d_bbg = np.random.normal(loc=0.0, scale=1.0, size=[360, 360, 3])
 
         # generators for Dataest
         domain_A_all = {
-            'global': tf.cast(d_A, tf.float32),
-            'instance': tf.cast(d_a, tf.float32),
-            'background': tf.cast(d_abg, tf.float32),
+            'global': d_A,
+            'instance': d_a,
+            # 'background': tf.cast(d_abg, tf.float32),
         }
         domain_B_all = {
-            'global': tf.cast(d_B, tf.float32),
-            'instance': tf.cast(d_b, tf.float32),
-            'background': tf.cast(d_bbg, tf.float32),
+            'global': d_B,
+            'instance': d_b,
+            # 'background': tf.cast(d_bbg, tf.float32),
         }
         generator_A = partial(self.generator, domain=domain_A_all)
         generator_B = partial(self.generator, domain=domain_B_all)
@@ -178,15 +174,24 @@ class DebugDatasetBuilder:
         output_types = {
             'global': tf.float32,
             'instance': tf.float32,
-            'background': tf.float32,
+            # 'background': tf.float32,
         }
         output_shapes = {
-            'global': tf.TensorShape((self.batch_size, 360, 360, 3)),
-            'background': tf.TensorShape((self.batch_size, 120, 120, 3)),
-            'instance': tf.TensorShape((self.batch_size, 360, 360, 3)),
+            'global': tf.TensorShape((360, 360, 3)),
+            # 'background': tf.TensorShape((self.batch_size, 120, 120, 3)),
+            'instance': tf.TensorShape((120, 120, 3)),
         }
-        dataset_A = Dataset.from_generator(generator_A, output_types, output_shapes)
-        dataset_B = Dataset.from_generator(generator_B, output_types, output_shapes)
+        dataset_A = tf.data.Dataset.from_generator(generator_A, output_types, output_shapes)
+        dataset_B = tf.data.Dataset.from_generator(generator_B, output_types, output_shapes)
+
+        dataset_A = dataset_A.prefetch(self.batch_size) \
+                    .apply(batch_and_drop_remainder(self.batch_size)) \
+                    .repeat() \
+                    .apply(prefetch_to_device(gpu_device, None))
+        dataset_B = dataset_B.prefetch(self.batch_size) \
+                    .apply(batch_and_drop_remainder(self.batch_size)) \
+                    .repeat() \
+                    .apply(prefetch_to_device(gpu_device, None))
 
         # Iterator
         trainA_iterator = dataset_A.make_one_shot_iterator()
