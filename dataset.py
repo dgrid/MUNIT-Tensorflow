@@ -40,9 +40,10 @@ class DatasetBuilder:
             trainB = load_pickle(self.dataset_path_trainB)
         else:
             # select domain_A and domain_B
-            folder_name = ['cloudy', 'rainy', 'sunny', 'night']
+            # folder_name = ['cloudy', 'rainy', 'sunny', 'night']
+            folder_name = ['sunny', 'night']
             weather_list = []
-            for weather in os.listdir(self.data_folder):
+            for weather in os.listdir(os.path.join(self.data_folder, 'D')):
                 if weather in folder_name:
                     weather_list.append(weather)
             if len(weather_list) != 2:
@@ -50,10 +51,15 @@ class DatasetBuilder:
             weather_A, weather_B = weather_list
 
             # load images from weather_a and weather_B
+            print(os.path.join(self.data_folder, 'D', weather_A))
+            print(os.path.join(self.data_folder, 'D', weather_B),)
             images_A = dict()
-            get_files(os.path.join(self.data_folder, weather_A), images_A)
+            get_files(os.path.join(self.data_folder, 'D', weather_A), images_A)
             images_B = dict()
-            get_files(os.path.join(self.data_folder, weather_B), images_B)
+            get_files(os.path.join(self.data_folder, 'D', weather_B), images_B)
+
+            print('a length before filtering : ', len(images_A))
+            print('b length before filtering : ', len(images_B))
 
             # remove no-instance images
             trainA = []
@@ -74,7 +80,9 @@ class DatasetBuilder:
             print('##### data test end ######')
 
             # split data
-            trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
+            # trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
+            trainA, testA = self.split(trainA)
+            trainB, testB = self.split(trainB)
             os.makedirs(os.path.dirname(self.dataset_path_trainA), exist_ok=True)
             dump_pickle(trainA, self.dataset_path_trainA)
             dump_pickle(trainB, self.dataset_path_trainB)
@@ -87,6 +95,18 @@ class DatasetBuilder:
         self._trainA = trainA
         self._trainB = trainB
         self._dataset_num = max(len(trainA), len(trainB))
+
+    def split(self, data, test_size=0.2):
+        train = []
+        test = []
+        for item in data:
+            ratio = random.random()
+            if ratio >= test_size:
+                train.append(item)
+            else:
+                test.append(item)
+        return train, test
+
 
     def build_dataset(self, gpu_device):
         generator_A = partial(self.generator, dataset=self._trainA)

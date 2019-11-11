@@ -7,6 +7,7 @@ import time
 import numpy as np
 import tensorflow as tf
 from tensorflow.python import debug as tf_debug
+tf.reset_default_graph()
 
 from ops import *
 from utils import *
@@ -308,12 +309,24 @@ class INIT(object) :
 
         return fake_A_logit, fake_B_logit
 
+    def feed_all_gpu(self, input_dict):
+        for i in range(len(self.models)):
+            a, b, ao, bo = self.models[i]
+            input_dict[a] = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim]).astype('float32')
+            input_dict[b] = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim]).astype('float32')
+            input_dict[ao] = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim]).astype('float32')
+            input_dict[bo] = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim]).astype('float32')
+            # input_dict[_lr] = lr
+        return input_dict
+
 
     def build_model(self):
         self.lr = tf.placeholder(tf.float32, name='learning_rate')
 
         g_loss_per_gpu = []
         d_loss_per_gpu = []
+
+        self.models = []
 
         for gpu_id in self.gpu_list:
             with tf.device(tf.DeviceSpec(device_type="GPU", device_index=gpu_id)):
@@ -560,6 +573,8 @@ class INIT(object) :
 
                     g_loss_per_gpu.append(Generator_loss)
                     d_loss_per_gpu.append(Discriminator_loss)
+                
+                    self.models.append((self.style_a, self.style_b, self.style_ao, self.style_bo))
 
         self.Generator_loss = tf.reduce_mean(g_loss_per_gpu)
         self.Discriminator_loss = tf.reduce_mean(d_loss_per_gpu)
@@ -657,6 +672,7 @@ class INIT(object) :
         self.writer = tf.summary.FileWriter(self.log_dir + '/' + self.model_dir, self.sess.graph)
 
         # restore check-point if it exits
+
         could_load, checkpoint_counter = self.load(self.checkpoint_dir)
         if could_load:
             start_epoch = (int)(checkpoint_counter / self.iteration)
@@ -672,26 +688,32 @@ class INIT(object) :
         # loop for epoch
         start_time = time.time()
         for epoch in range(start_epoch, self.epoch):
-
-            lr = self.init_lr * pow(0.5, epoch)
-
             for idx in range(start_batch_id, self.iteration):
-                style_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
-                style_b = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
-                style_ao = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
-                style_bo = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim])
+             
+                lr = self.init_lr * pow(0.5, epoch)
+                # style_a = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim]).astype('float32')
+                # style_b = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim]).astype('float32')
+                # style_ao = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim]).astype('float32')
+                # style_bo = np.random.normal(loc=0.0, scale=1.0, size=[self.batch_size, 1, 1, self.style_dim]).astype('float32')
 
-                train_feed_dict = {
-                    self.style_a : style_a,
-                    self.style_b : style_b,
-                    self.style_ao : style_ao,
-                    self.style_bo : style_bo,
-                    self.lr : lr
-                }
-                assert(tuple(style_a.shape) == (self.batch_size, 1, 1, self.style_dim))
-                assert(tuple(style_b.shape) == (self.batch_size, 1, 1, self.style_dim))
-                assert(tuple(style_ao.shape) == (self.batch_size, 1, 1, self.style_dim))
-                assert(tuple(style_bo.shape) == (self.batch_size, 1, 1, self.style_dim))
+                # train_feed_dict = {
+                #     self.style_a : style_a,
+                #     self.style_b : style_b,
+                #     self.style_ao : style_ao,
+                #     self.style_bo : style_bo,
+                #     self.lr : lr
+                # }
+
+                train_feed_dict = {}
+                train_feed_dict[self.lr] = lr
+                train_feed_dict = self.feed_all_gpu(train_feed_dict)
+
+                # for key in train_feed_dict.keys():
+                #     print(key, train_feed_dict[key].shape, train_feed_dict[key].dtype)
+                # assert(tuple(style_a.shape) == (self.batch_size, 1, 1, self.style_dim))
+                # assert(tuple(style_b.shape) == (self.batch_size, 1, 1, self.style_dim))
+                # assert(tuple(style_ao.shape) == (self.batch_size, 1, 1, self.style_dim))
+                # assert(tuple(style_bo.shape) == (self.batch_size, 1, 1, self.style_dim))
 
                 # Update D
                 print("Update D")
@@ -709,7 +731,7 @@ class INIT(object) :
                 # display training status
                 counter += 1
                 print("Epoch: [%2d] [%6d/%6d] time: %4.4f d_loss: %.8f, g_loss: %.8f" \
-                      % (epoch, idx, self.iteration, time.time() - start_time, d_loss, g_loss))
+                    % (epoch, idx, self.iteration, time.time() - start_time, d_loss, g_loss))
 
                 if np.mod(idx+1, self.print_freq) == 0 :
                     save_images(batch_A_images, [self.batch_size, 1],
@@ -722,8 +744,8 @@ class INIT(object) :
                     save_images(fake_B, [self.batch_size, 1],
                                 './{}/fake_B_{:02d}_{:06d}.jpg'.format(self.sample_dir, epoch, idx+1))
 
-                if np.mod(idx+1, self.save_freq) == 0 :
-                    self.save(self.checkpoint_dir, counter)
+                # if np.mod(idx+1, self.save_freq) == 0 :
+                #     self.save(self.checkpoint_dir, counter)
 
             # After an epoch, start_batch_id is set to zero
             # non-zero value is only for the first epoch after loading pre-trained model
