@@ -61,36 +61,27 @@ def parse_args():
     # parser.add_argument('--dataset', type=str, default='summer2winter', help='dataset_name')
     parser.add_argument('--augment_flag', action='store_true', help='Image augmentation use or not')
 
-    # parser.add_argument('--epoch', type=int, default=10, help='The number of epochs to run')
-    # parser.add_argument('--iteration', type=int, default=100000, help='The number of training iterations')
-    # parser.add_argument('--batch_size', type=int, default=1, help='The batch size')
-    # parser.add_argument('--print_freq', type=int, default=1000, help='The number of image_print_freq')
-    # parser.add_argument('--save_freq', type=int, default=1000, help='The number of ckpt_save_freq')
-    # parser.add_argument('--num_style', type=int, default=3, help='number of styles to sample')
-    # parser.add_argument('--direction', type=str, default='a2b', help='direction of style guided image translation')
-    # parser.add_argument('--guide_img', type=str, default='guide.jpg', help='Style guided image translation')
-
-    parser.add_argument('--epoch', type=int, default=10, help='The number of epochs to run')
-    parser.add_argument('--iteration', type=int, default=10, help='The number of training iterations')
+    parser.add_argument('--epoch', type=int, default=30, help='The number of epochs to run')
+    parser.add_argument('--iteration', type=int, default=5500, help='The number of training iterations')
     parser.add_argument('--batch_size', type=int, default=1, help='The batch size')
-    parser.add_argument('--print_freq', type=int, default=1, help='The number of image_print_freq')
-    parser.add_argument('--save_freq', type=int, default=1, help='The number of ckpt_save_freq')
+    parser.add_argument('--print_freq', type=int, default=100, help='The number of image_print_freq')
+    parser.add_argument('--save_freq', type=int, default=100, help='The number of ckpt_save_freq')
     parser.add_argument('--num_style', type=int, default=3, help='number of styles to sample')
     parser.add_argument('--direction', type=str, default='a2b', help='direction of style guided image translation')
     parser.add_argument('--guide_img', type=str, default='guide.jpg', help='Style guided image translation')
 
     parser.add_argument('--gan_type', type=str, default='lsgan', help='GAN loss type [gan / lsgan]')
 
-    parser.add_argument('--lr', type=float, default=0.0001, help='The learning rate')
+    parser.add_argument('--lr', type=float, default=0.0004, help='The learning rate')
     parser.add_argument('--gan_w', type=float, default=1.0, help='weight of adversarial loss')
-    parser.add_argument('--recon_x_w', type=float, default=1.0, help='weight of image reconstruction loss')
+    parser.add_argument('--recon_x_w', type=float, default=10.0, help='weight of image reconstruction loss')
     parser.add_argument('--recon_s_w', type=float, default=1.0, help='weight of style reconstruction loss')
     parser.add_argument('--recon_c_w', type=float, default=1.0, help='weight of content reconstruction loss')
     parser.add_argument('--recon_x_cyc_w', type=float, default=0.0,
                         help='weight of explicit style augmented cycle consistency loss')
 
     parser.add_argument('--gan_o_w', type=float, default=1.0, help='weight of adversarial loss')
-    parser.add_argument('--recon_o_w', type=float, default=1.0, help='weight of image reconstruction loss-instance')
+    parser.add_argument('--recon_o_w', type=float, default=10.0, help='weight of image reconstruction loss-instance')
     parser.add_argument('--recon_o_s_w', type=float, default=1.0, help='weight of style reconstruction loss-instance')
     parser.add_argument('--recon_o_c_w', type=float, default=1.0, help='weight of content reconstruction loss-instance')
     parser.add_argument('--recon_o_cyc_w', type=float, default=0.0,
@@ -181,7 +172,7 @@ def main():
         gan.build_model()
 
         # show network architecture
-        # show_all_variables()
+        show_all_variables()
 
         if args.phase == 'train' :
             # launch the graph in a session

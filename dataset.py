@@ -77,7 +77,7 @@ class DatasetBuilder:
             print(f"domain A({weather_A}): ", len(trainA))
             print(f"domain B({weather_B}): ", len(trainB))
 
-            print('##### data test end ######')
+            # print('##### data test end ######')
 
             # split data
             # trainA, trainB, testA, testB = train_test_split(trainA, trainB, test_size=0.2, random_state=0)
@@ -90,13 +90,44 @@ class DatasetBuilder:
             dump_pickle(testB, self.dataset_path_testB)
 
         print("data ready")
-        print()
 
         self._trainA = trainA
         self._trainB = trainB
         self._dataset_num = max(len(trainA), len(trainB))
 
+    def remake(self, size1=5000, size2=200):
+        # make a smaller dataset for tuning
+        print()
+        print('@@@ a smaller set for tuning @@@')
+        dataset_path_trainA = os.path.join(self.data_folder, 'tuning', 'trainA.pkl')
+        dataset_path_trainB = os.path.join(self.data_folder, 'tuning', 'trainB.pkl')
+        dataset_path_testA = os.path.join(self.data_folder, 'tuning', 'testA.pkl')
+        dataset_path_testB = os.path.join(self.data_folder, 'tuning', 'testB.pkl')
+
+        random.shuffle(self._trainA)
+        random.shuffle(self._trainB)
+
+        trainA = self._trainA[:size1]
+        trainB = self._trainB[:size1]
+
+        testA = self._trainA[-size2:]
+        testB = self._trainB[-size2:]
+        print('    tuning data info    ')
+        print('trainA size : ', len(trainA))
+        print('trainB size : ', len(trainB))
+        print('testA  size : ', len(testA))
+        print('testB  size : ', len(testB))
+        print()
+
+        dump_pickle(trainA, dataset_path_trainA)
+        dump_pickle(trainB, dataset_path_trainB)
+        dump_pickle(testA, dataset_path_testA)
+        dump_pickle(testB, dataset_path_testB)
+
+        return trainA, trainB
+
     def split(self, data, test_size=0.2):
+        # sklearn.train_test_split requires A & B with same length
         train = []
         test = []
         for item in data:
@@ -107,8 +138,10 @@ class DatasetBuilder:
                 test.append(item)
         return train, test
 
-
     def build_dataset(self, gpu_device):
+        # generate a new dataset for tuning
+        # trainA, trainB = self.remake()
+
         generator_A = partial(self.generator, dataset=self._trainA)
         generator_B = partial(self.generator, dataset=self._trainB)
 

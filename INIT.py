@@ -343,9 +343,9 @@ class INIT(object) :
                     self.domain_A = self.domain_A_all['global']
                     # randomly select one instance for each interation
                     self.domain_a = self.domain_A_all['instance']
-                    print("#"*20, "test data format", "#"*20,)
-                    print("domain a", type(self.domain_a))
-                    print()
+                    # print("#"*20, "test data format", "#"*20,)
+                    # print("domain a", type(self.domain_a))
+                    # print()
                     # ignore background to speed up training
                     # self.domain_a_bg = self.domain_A_all['background']
 
@@ -685,6 +685,12 @@ class INIT(object) :
             counter = 1
             print(" [!] Load failed...")
 
+        # for test
+        # start_epoch = 0
+        # start_batch_id = 0
+        # counter = 0
+
+
         # loop for epoch
         start_time = time.time()
         for epoch in range(start_epoch, self.epoch):
@@ -764,7 +770,7 @@ class INIT(object) :
         if not os.path.exists(checkpoint_dir):
             os.makedirs(checkpoint_dir)
 
-        self.saver.save(self.sess, os.path.join(checkpoint_dir, self.model_name + '.model'), global_step=step)
+        self.saver.save(self.sess, os.path.join(checkpoint_dir, self.model_name + '11'+ '.model'), global_step=step)
 
     def load(self, checkpoint_dir):
         import re
